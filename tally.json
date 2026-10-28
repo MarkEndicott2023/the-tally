@@ -1,0 +1,38 @@
+{
+  "points": 0,
+  "threshold": 13,
+  "started": "2026-10-28",
+  "label": "",
+  "sessions": [
+    {
+      "id": "38h5sxjp",
+      "date": "2026-10-28",
+      "label": "optimization",
+      "points": 3,
+      "threshold": 20
+    },
+    {
+      "id": "ko07trz9",
+      "date": "2026-10-28",
+      "label": "big data",
+      "points": 5,
+      "threshold": 20
+    },
+    {
+      "id": "7o5fv7w1",
+      "date": "2026-10-28",
+      "label": "statistics",
+      "points": 5,
+      "threshold": 13
+    },
+    {
+      "id": "49jfmhqo",
+      "date": "2026-10-28",
+      "label": "social science",
+      "points": 4,
+      "threshold": 13
+    }
+  ],
+  "deleted": [],
+  "updated": 1793213817840
+}
