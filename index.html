@@ -40,6 +40,9 @@
   .stat { text-align: right; }
   .stat .lbl { font-size: 11px; letter-spacing: .35em; color: var(--ice); text-transform: uppercase; font-weight: 500; }
   .stat .val { font-size: 34px; color: var(--white); line-height: 1; letter-spacing: .06em; margin-top: 4px; text-shadow: var(--halo2); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .stat .val.gold { color: var(--yel); text-shadow: 0 0 6px rgba(255,209,102,.5), 0 0 16px rgba(255,209,102,.45); }
+  .stat .val.open { color: var(--ice); text-shadow: var(--halo); }
+  .stat .lbl.open { color: var(--yel); }
   button, .stat input { background: var(--panel2); color: var(--white); border: 1px solid var(--frame2); font-family: var(--font-ui); font-weight: 500;
     font-size: 12px; padding: 8px 14px; cursor: pointer; letter-spacing: .22em; text-transform: uppercase; transition: box-shadow .15s, border-color .15s, background .15s; }
   button:hover { border-color: var(--frame); background: var(--panel3); box-shadow: 0 0 10px rgba(40,210,200,.25); text-shadow: var(--halo); }
@@ -123,6 +126,8 @@
       <div class="stat"><div class="lbl">Points</div><div class="val" id="points">0</div></div>
       <div class="stat"><div class="lbl">Threshold</div><input type="number" id="threshold" min="1" step="1" value="20" title="points needed to close the session"></div>
       <div class="stat"><div class="lbl">Session</div><div class="val" id="sessno">1</div></div>
+      <div class="stat"><div class="lbl" id="streaklbl">Streak</div><div class="val" id="streak" title="consecutive days with 2 or more reps; the live session counts toward today">0</div></div>
+      <div class="stat"><div class="lbl">Best</div><div class="val" id="best" title="longest streak on record">0</div></div>
       <div class="stat"><div class="lbl">Label</div><input type="text" id="label" class="text" placeholder="optimization, big data, python…" maxlength="40" title="what this session is about; filed with it"></div>
     </div>
   </header>
@@ -154,6 +159,8 @@
     A rep is one prediction-error cycle: attempt or predict, get the verdict, take the feedback. Every click is one point. The session closes when points reach the threshold; keep clicking past it if you like.
     <span>Label</span> names the session (optimization, big data, python…) and is filed with it; click a filed label to rename it, <span>✕</span> deletes the session.
     <span>New session</span> files the current count and resets to zero.
+    <span>Streak</span> is consecutive days, through today or yesterday, with 2 or more reps each, summed across that day's sessions and the live one; the threshold plays no part. Gold is intact, ice means yesterday held and today is still open, 0 means the chain is broken.
+    <span>Best</span> is the longest streak on record; it turns gold when the live streak is the record.
     <span>Save</span> links the page to a tally.json you choose: it reads what the file already holds, merges, writes, and from then on every change goes to the file, deletes included.
     <div class="disk" id="disk"></div>
   </div>
@@ -278,11 +285,37 @@
     el.textContent = msg; el.className = "disk" + (cls ? " " + cls : "");
   }
 
+  // Streak: consecutive calendar days, ending today or yesterday, with at least STREAK_MIN reps each. A day's reps
+  // are summed over every session filed under that date plus the live session under its start date; the threshold
+  // plays no part. `open` means the streak is alive from yesterday but today has not reached STREAK_MIN yet.
+  const STREAK_MIN = 2;
+  const dayNo = s => { const [y, m, d] = String(s).split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
+  function streak() {
+    const per = new Map();
+    const add = (date, p) => { const k = dayNo(date); per.set(k, (per.get(k) || 0) + (Number(p) || 0)); };
+    st.sessions.forEach(s => add(s.date, s.points));
+    add(st.started || today(), st.points);
+    const days = new Set([...per].filter(([, p]) => p >= STREAK_MIN).map(([k]) => k));
+    let d = dayNo(today()), todayMet = days.has(d), n = 0;
+    if (!todayMet) d -= 1;
+    while (days.has(d)) { n += 1; d -= 1; }
+    // best: the longest run anywhere in the record, the live streak included
+    let best = 0, run = 0, prev = null;
+    for (const x of [...days].sort((a, b) => a - b)) { run = x === prev + 1 ? run + 1 : 1; prev = x; if (run > best) best = run; }
+    return { n, open: n > 0 && !todayMet, best };
+  }
   function render() {
     const t = Math.max(1, Number(st.threshold) || 1), p = st.points, done = p >= t;
     g("points").textContent = p;
     if (document.activeElement !== g("threshold")) g("threshold").value = t;
     g("sessno").textContent = st.sessions.length + 1;
+    const sk = streak();
+    g("streak").textContent = sk.n;
+    g("streak").className = "val" + (sk.open ? " open" : sk.n > 0 ? " gold" : "");
+    g("streaklbl").textContent = sk.open ? "Streak · today open" : "Streak";
+    g("streaklbl").className = "lbl" + (sk.open ? " open" : "");
+    g("best").textContent = sk.best;
+    g("best").className = "val" + (sk.best > 0 && sk.n === sk.best && !sk.open ? " gold" : "");
     if (document.activeElement !== g("label")) g("label").value = st.label || "";
     g("fill").style.width = `${Math.min(100, p / t * 100)}%`;
     g("prog").classList.toggle("done", done);
@@ -314,10 +347,14 @@
     g("toasts").appendChild(el); setTimeout(() => el.remove(), 1200);
   }
   function rep() {
+    const before = streak();
     st.points += 1; save();
     const t = Math.max(1, Number(st.threshold) || 1);
     toast(st.points === t ? "THRESHOLD MET" : "+1 POINT", st.points >= t);
     render();
+    // the rep that brings today to STREAK_MIN may extend the streak; say so a beat after the first toast
+    const after = streak();
+    if (after.n > before.n && after.n >= 2) setTimeout(() => toast(after.n > before.best ? `BEST STREAK ${after.n}` : `STREAK ${after.n}`, true), 450);
   }
   g("rep").onclick = rep;
   g("undo").onclick = () => { if (st.points > 0) { st.points -= 1; save(); toast("−1", false); render(); } };

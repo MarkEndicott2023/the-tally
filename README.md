@@ -16,6 +16,8 @@ Open `index.html` in Chrome or Edge. Nothing to install or run.
 - **REP**, or space or enter, adds a point and floats "+1 POINT". The click that reaches the threshold says "THRESHOLD MET" and turns the bar gold.
 - **Threshold** is the session quota. Change it any time.
 - **Label** names the session (optimization, big data, python) and is filed with it.
+- **Streak** counts consecutive days, through today or yesterday, with 2 or more reps each, summed across that day's sessions and the live one. The threshold plays no part. Gold is intact; ice means yesterday held and today is still open; 0 means the chain broke. The rep that brings today to 2 and extends the streak floats "STREAK n", or "BEST STREAK n" when it sets a record.
+- **Best** is the longest streak on record, the live one included. Gold when the live streak is the record.
 - **− 1** takes back a misclick.
 - **New session** files the count, date and label, then resets. Filed sessions list below, newest first. Click a label to rename it; **✕** deletes the session.
 

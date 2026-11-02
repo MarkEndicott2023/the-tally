@@ -1,38 +1,36 @@
 {
   "points": 0,
-  "threshold": 13,
-  "started": "2026-10-28",
+  "threshold": 4,
+  "started": "2026-10-30",
   "label": "",
   "sessions": [
     {
-      "id": "38h5sxjp",
+      "id": "5fb9mdy4",
       "date": "2026-10-28",
-      "label": "optimization",
+      "label": "convex optimization & CVXPY",
+      "points": 8,
+      "threshold": 10
+    },
+    {
+      "id": "5zde9f9a",
+      "date": "2026-10-29",
+      "label": "convex optimization & CVXPY",
       "points": 3,
-      "threshold": 20
+      "threshold": 4
     },
     {
-      "id": "ko07trz9",
-      "date": "2026-10-28",
-      "label": "big data",
-      "points": 5,
-      "threshold": 20
-    },
-    {
-      "id": "7o5fv7w1",
-      "date": "2026-10-28",
-      "label": "statistics",
-      "points": 5,
-      "threshold": 13
-    },
-    {
-      "id": "49jfmhqo",
-      "date": "2026-10-28",
-      "label": "social science",
+      "id": "urp3gfaz",
+      "date": "2026-10-30",
+      "label": "convex optimization & CVXPY",
       "points": 4,
-      "threshold": 13
+      "threshold": 4
     }
   ],
-  "deleted": [],
-  "updated": 1793213817840
+  "deleted": [
+    "49jfmhqo",
+    "7o5fv7w1",
+    "ko07trz9",
+    "38h5sxjp"
+  ],
+  "updated": 1793381765895
 }
