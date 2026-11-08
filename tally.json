@@ -2,7 +2,7 @@
   "points": 0,
   "threshold": 4,
   "started": "",
-  "label": "stationarity",
+  "label": "",
   "sessions": [
     {
       "id": "5fb9mdy4",
@@ -31,6 +31,62 @@
       "label": "orthogonal projection",
       "points": 3,
       "threshold": 4
+    },
+    {
+      "id": "t4amze9n",
+      "date": "2026-11-02",
+      "label": "stationarity",
+      "points": 3,
+      "threshold": 4
+    },
+    {
+      "id": "z334yf8g",
+      "date": "2026-11-03",
+      "label": "orthogonal projection & stationarity",
+      "points": 6,
+      "threshold": 8
+    },
+    {
+      "id": "qdqqcxwg",
+      "date": "2026-11-03",
+      "label": "orthogonal projection & stationarity",
+      "points": 2,
+      "threshold": 3
+    },
+    {
+      "id": "u2qdrayp",
+      "date": "2026-11-03",
+      "label": "orthogonal projection & stationarity",
+      "points": 7,
+      "threshold": 4
+    },
+    {
+      "id": "y7kfo1r1",
+      "date": "2026-11-04",
+      "label": "convexity, projection, & stationarity",
+      "points": 5,
+      "threshold": 4
+    },
+    {
+      "id": "5tca4duq",
+      "date": "2026-11-05",
+      "label": "convexity, projection, & stationarity",
+      "points": 5,
+      "threshold": 4
+    },
+    {
+      "id": "58vxdp7w",
+      "date": "2026-11-06",
+      "label": "convexity, projection, & stationarity",
+      "points": 4,
+      "threshold": 4
+    },
+    {
+      "id": "ohimusks",
+      "date": "2026-11-07",
+      "label": "pandas & misra-gries",
+      "points": 3,
+      "threshold": 4
     }
   ],
   "deleted": [
@@ -40,5 +96,5 @@
     "38h5sxjp",
     "igdpymjk"
   ],
-  "updated": 1793653021805
+  "updated": 1794173128038
 }
