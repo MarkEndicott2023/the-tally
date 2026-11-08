@@ -96,7 +96,8 @@
 
   /* sessions */
   .sessions { display: grid; grid-template-columns: auto auto 1fr auto auto auto; gap: 8px 18px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em; align-items: baseline; }
-  .sessions .d { color: var(--ice); }
+  .sessions .d { color: var(--ice); cursor: text; }
+  .sessions .d:hover { text-shadow: var(--halo); }
   .sessions .l { color: var(--white); font-family: var(--font-ui); font-weight: 500; font-size: 13px; letter-spacing: .06em; cursor: text; max-width: 22em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sessions .l.none { color: var(--dim); font-weight: 300; font-style: italic; }
   .sessions .l:hover { text-shadow: var(--halo); }
@@ -157,7 +158,8 @@
 
   <div class="foot">
     A rep is one prediction-error cycle: attempt or predict, get the verdict, take the feedback. Every click is one point. The session closes when points reach the threshold; keep clicking past it if you like.
-    <span>Label</span> names the session (optimization, big data, python…) and is filed with it; click a filed label to rename it, <span>✕</span> deletes the session.
+    <span>Label</span> names the session (optimization, big data, python…) and is filed with it; click a filed label to rename it, click its date to change it, <span>✕</span> deletes the session.
+    A session is dated by its first rep, so a page left open for days files under the day the reps happened.
     <span>New session</span> files the current count and resets to zero.
     <span>Streak</span> is consecutive days, through today or yesterday, with 2 or more reps each, summed across that day's sessions and the live one; the threshold plays no part. Gold is intact, ice means yesterday held and today is still open, 0 means the chain is broken.
     <span>Best</span> is the longest streak on record; it turns gold when the live streak is the record.
@@ -178,7 +180,8 @@
   // rest of the visit. The next visit remembers the file: if the browser still allows it, it merges on open by
   // itself, otherwise one click on Save reconnects. `deleted` carries tombstones so a session deleted on the page
   // stays deleted through a merge. A browser without the picker API gets a download from Save instead.
-  const empty = () => ({ points: 0, threshold: 20, started: today(), label: "", sessions: [], deleted: [], updated: 0 });
+  // `started` is the date of the live session's first rep, "" until there is one; the session files under it.
+  const empty = () => ({ points: 0, threshold: 20, started: "", label: "", sessions: [], deleted: [], updated: 0 });
   const uid = () => Math.random().toString(36).slice(2, 10);
   const SKEY = "tally_savedAt", FSA = "showSaveFilePicker" in window;
   const TYPES = [{ description: "JSON", accept: { "application/json": [".json"] } }];
@@ -290,6 +293,8 @@
   // plays no part. `open` means the streak is alive from yesterday but today has not reached STREAK_MIN yet.
   const STREAK_MIN = 2;
   const dayNo = s => { const [y, m, d] = String(s).split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
+  // YYYY-MM-DD that survives a round trip, so 2026-02-30 (which the Date parser rolls to March 2) is refused
+  const validDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + "T00:00:00Z")) && new Date(s + "T00:00:00Z").toISOString().slice(0, 10) === s;
   function streak() {
     const per = new Map();
     const add = (date, p) => { const k = dayNo(date); per.set(k, (per.get(k) || 0) + (Number(p) || 0)); };
@@ -327,7 +332,7 @@
     g("notep").textContent = done ? `Session ${st.sessions.length + 1} closed: ${p} of ${t} reps. File it with New session, or keep going.` : "";
     // newest first; the index points back into st.sessions for rename and delete
     const rows = st.sessions.map((s, i) => ({ s, i })).reverse().slice(0, 20);
-    g("sessions").innerHTML = rows.length ? rows.map(({ s, i }) => `<span class="d">${s.date}</span><span class="l ${s.label ? "" : "none"}" data-rename="${i}" title="click to rename">${s.label ? esc(s.label) : "no label"}</span><span class="bar ${s.points >= s.threshold ? "ok" : ""}"><i style="width:${Math.min(100, s.points / Math.max(1, s.threshold) * 100)}%"></i></span><span class="n">${s.points} / ${s.threshold}</span><span class="${s.points >= s.threshold ? "ok" : "no"}">${s.points >= s.threshold ? "met" : "short"}</span><button class="x" data-del="${i}" title="delete this session">✕</button>`).join("")
+    g("sessions").innerHTML = rows.length ? rows.map(({ s, i }) => `<span class="d" data-date="${i}" title="click to change the date">${esc(s.date)}</span><span class="l ${s.label ? "" : "none"}" data-rename="${i}" title="click to rename">${s.label ? esc(s.label) : "no label"}</span><span class="bar ${s.points >= s.threshold ? "ok" : ""}"><i style="width:${Math.min(100, s.points / Math.max(1, s.threshold) * 100)}%"></i></span><span class="n">${s.points} / ${s.threshold}</span><span class="${s.points >= s.threshold ? "ok" : "no"}">${s.points >= s.threshold ? "met" : "short"}</span><button class="x" data-del="${i}" title="delete this session">✕</button>`).join("")
       : `<span class="empty" style="grid-column:1/-1">none filed yet</span>`;
     g("sessions").querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
       const s = st.sessions[Number(b.dataset.del)]; if (!s) return;
@@ -341,6 +346,13 @@
       const v = prompt("Label for this session:", s.label || ""); if (v === null) return;
       s.label = v.trim().slice(0, 40); save(); render();
     });
+    g("sessions").querySelectorAll("[data-date]").forEach(el => el.onclick = () => {
+      const s = st.sessions[Number(el.dataset.date)]; if (!s) return;
+      const v = prompt("Date for this session (YYYY-MM-DD):", s.date); if (v === null) return;
+      const d = v.trim();
+      if (!validDate(d)) { alert(`"${d}" is not a date like 2026-11-02; unchanged.`); return; }
+      s.date = d; save(); render();
+    });
   }
   function toast(text, gold) {
     const el = document.createElement("div"); el.className = "toast" + (gold ? " gold" : ""); el.textContent = text;
@@ -348,6 +360,7 @@
   }
   function rep() {
     const before = streak();
+    if (!st.points) st.started = today();   // the first rep dates the session, not the moment the last one was filed
     st.points += 1; save();
     const t = Math.max(1, Number(st.threshold) || 1);
     toast(st.points === t ? "THRESHOLD MET" : "+1 POINT", st.points >= t);
@@ -357,14 +370,14 @@
     if (after.n > before.n && after.n >= 2) setTimeout(() => toast(after.n > before.best ? `BEST STREAK ${after.n}` : `STREAK ${after.n}`, true), 450);
   }
   g("rep").onclick = rep;
-  g("undo").onclick = () => { if (st.points > 0) { st.points -= 1; save(); toast("−1", false); render(); } };
+  g("undo").onclick = () => { if (st.points > 0) { st.points -= 1; if (!st.points) st.started = ""; save(); toast("−1", false); render(); } };
   g("threshold").addEventListener("change", ev => { st.threshold = Math.max(1, Math.round(Number(ev.target.value) || 1)); save(); render(); });
   g("label").addEventListener("input", ev => { st.label = ev.target.value.slice(0, 40); save(); });
   g("newsess").onclick = () => {
-    if (!st.points) { st.started = today(); save(); render(); return; }
+    if (!st.points) return;
     if (!confirm(`File session ${st.sessions.length + 1}${st.label ? ` "${st.label}"` : ""} at ${st.points} of ${st.threshold} and start a new one?`)) return;
     st.sessions.push({ id: uid(), date: st.started || today(), label: (st.label || "").trim(), points: st.points, threshold: st.threshold });
-    st.points = 0; st.started = today(); st.label = ""; save(); render();
+    st.points = 0; st.started = ""; st.label = ""; save(); render();
   };
   document.addEventListener("keydown", ev => {
     if (ev.target === g("threshold") || ev.target === g("label")) return;
@@ -372,7 +385,6 @@
   });
   g("save").onclick = saveClick;
   window.addEventListener("beforeunload", ev => { if (dirty() && (linked || !FSA)) { ev.preventDefault(); ev.returnValue = ""; } });
-  if (!st.started) st.started = today();
   render(); status();
   // A remembered file: merge on open when the browser still allows it without asking; otherwise say so and wait for Save.
   if (FSA) recallHandle().then(async h => {

@@ -11,6 +11,10 @@ tally.json     the record, wherever you save it
 
 Open `index.html` in Chrome or Edge. Nothing to install or run.
 
+## Phone (2026-11-02)
+
+`ui/tally` in the-register is a symlink to this folder, so the-register's server and its Tailscale Serve proxy carry the page: https://marks-macbook-pro.taila29e61.ts.net/tally/ on the tailnet, with the Mac awake. iOS Safari has no file picker, so on the phone Save downloads a copy and the count lives in that browser alone; it does not reach tally.json. Undo with `rm the-register/ui/tally`.
+
 ## Use
 
 - **REP**, or space or enter, adds a point and floats "+1 POINT". The click that reaches the threshold says "THRESHOLD MET" and turns the bar gold.
@@ -19,7 +23,7 @@ Open `index.html` in Chrome or Edge. Nothing to install or run.
 - **Streak** counts consecutive days, through today or yesterday, with 2 or more reps each, summed across that day's sessions and the live one. The threshold plays no part. Gold is intact; ice means yesterday held and today is still open; 0 means the chain broke. The rep that brings today to 2 and extends the streak floats "STREAK n", or "BEST STREAK n" when it sets a record.
 - **Best** is the longest streak on record, the live one included. Gold when the live streak is the record.
 - **− 1** takes back a misclick.
-- **New session** files the count, date and label, then resets. Filed sessions list below, newest first. Click a label to rename it; **✕** deletes the session.
+- **New session** files the count, date and label, then resets. The date is the day of the session's first rep, so a page left open for days files under the day the reps happened. Filed sessions list below, newest first. Click a label to rename it, click a date to change it; **✕** deletes the session.
 
 ## Save
 

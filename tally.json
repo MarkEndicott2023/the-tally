@@ -1,8 +1,8 @@
 {
   "points": 0,
   "threshold": 4,
-  "started": "2026-10-30",
-  "label": "",
+  "started": "",
+  "label": "stationarity",
   "sessions": [
     {
       "id": "5fb9mdy4",
@@ -24,13 +24,21 @@
       "label": "convex optimization & CVXPY",
       "points": 4,
       "threshold": 4
+    },
+    {
+      "id": "k4ztdxho",
+      "date": "2026-11-02",
+      "label": "orthogonal projection",
+      "points": 3,
+      "threshold": 4
     }
   ],
   "deleted": [
     "49jfmhqo",
     "7o5fv7w1",
     "ko07trz9",
-    "38h5sxjp"
+    "38h5sxjp",
+    "igdpymjk"
   ],
-  "updated": 1793381765895
+  "updated": 1793653021805
 }
