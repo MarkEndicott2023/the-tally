@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reps · The Tally</title>
+<title>The Tally</title>
 <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;0,600;1,600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   /* Theme lifted from the-register: black windows etched with faint circuit traces, hairline pale frames, a teal halo, white text. */
@@ -113,6 +113,15 @@
   .disk.warn { color: var(--yel); }
   .disk.err { color: var(--red); }
   button.cy { border-color: var(--frame); box-shadow: 0 0 8px rgba(40,210,200,.18); }
+  /* PIN panel */
+  .pinrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .pinrow[hidden] { display: none; }
+  .pinrow input { background: var(--panel2); color: var(--white); border: 1px solid var(--frame2); font-family: var(--font-mono); font-size: 22px; letter-spacing: .35em; width: 7em; padding: 6px 10px 6px 14px; text-align: center; color-scheme: dark; }
+  .pinrow input:focus { outline: none; border-color: var(--frame); box-shadow: 0 0 8px rgba(40,210,200,.22); }
+  .pinrow input::placeholder { color: var(--dim); letter-spacing: .06em; font-size: 14px; }
+  .pinrow .pinval { font-family: var(--font-mono); font-size: 13px; color: var(--ice); letter-spacing: .06em; margin-right: 8px; }
+  .pinrow .pinval b { color: var(--white); font-weight: normal; font-size: 22px; letter-spacing: .35em; margin-left: 10px; text-shadow: var(--halo2); }
+  .pinhint { margin-top: 12px; color: var(--dim); font-size: 12px; font-family: var(--font-mono); line-height: 1.7; letter-spacing: .03em; }
   @media (max-width: 600px) { body { padding: 24px 16px 50px; } .panel { padding: 20px 18px; } .rep { height: 130px; font-size: 22px; } }
 </style>
 </head>
@@ -129,6 +138,21 @@
       <div class="stat"><div class="lbl">Label</div><input type="text" id="label" class="text" placeholder="optimization, big data, python…" maxlength="40" title="what this session is about; filed with it"></div>
     </div>
   </header>
+
+  <div class="panel">
+    <h2>PIN</h2>
+    <div class="pinrow" id="pinform">
+      <input type="text" id="pin" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="5 digits" title="your tally's PIN">
+      <button id="pinopen" class="cy" title="open the tally filed under this PIN and bring it into this browser">Open</button>
+      <button id="pinnew" title="start a new tally under this PIN, or under a random one if the box is empty">New tally</button>
+    </div>
+    <div class="pinrow" id="pinon" hidden>
+      <span class="pinval">PIN<b id="pinshow"></b></span>
+      <button id="pinout" title="forget this PIN on this device; the tally stays on the server">Switch PIN</button>
+    </div>
+    <div class="disk" id="cloud"></div>
+    <div class="pinhint" id="pinhint">A PIN is the whole account: no name, no email. <span>New tally</span> makes one and shows you the PIN; write it down, it is the only way back in. <span>Open</span> brings an existing tally to this browser and keeps it in step from then on.</div>
+  </div>
 
   <div class="panel">
     <h2>Progress</h2>
@@ -213,6 +237,7 @@
   function save() {
     st.updated = Date.now(); saveLocal();
     if (linked) push(); else status();
+    schedulePush();
   }
   // The chosen file handle survives reloads in IndexedDB; permission to use it does not always, hence Save.
   function idb(mode, fn) {
@@ -283,6 +308,102 @@
     else if (!linked) { msg = `${handle.name} remembered · click Save to reconnect and bring its sessions in`; cls = "warn"; }
     else msg = un ? `unsaved changes · Save writes ${handle.name}` : `saved to ${handle.name}`;
     el.textContent = msg; el.className = "disk" + (cls ? " " + cls : "");
+  }
+
+  // Server: a 5-digit PIN names a tally on the server (database/server.py, SQLite on Mark's Mac). Open fetches
+  // the tally under a PIN and merges it with this browser's copy; New tally creates one under the typed PIN, or a
+  // random free one. From then on every change is pushed (debounced), the server merges both sides with the same
+  // rules as `merge` above and answers with the result, and coming back to the tab pulls again, so two devices on
+  // one PIN converge. The PIN is the only credential and lives in localStorage; Switch PIN forgets it on this
+  // device and leaves the tally on the server. With API empty the page stays local-only and says so.
+  const API = "";   // where database/server.py answers, e.g. "http://127.0.0.1:8766" or the Tailscale HTTPS path; no trailing slash
+  const PKEY = "tally_pin";
+  let pin = (() => { try { return localStorage.getItem(PKEY) || ""; } catch (e) { return ""; } })();
+  let cloudMsg = "", cloudCls = "", pushTimer = 0, pushing = false, pendingPush = false;
+  const validPin = p => /^\d{5}$/.test(p);
+  const randomPin = () => String(Math.floor(Math.random() * 1e5)).padStart(5, "0");
+  const rememberPin = p => { pin = p; try { if (p) localStorage.setItem(PKEY, p); else localStorage.removeItem(PKEY); } catch (e) { } };
+  async function api(method, p, body) {
+    const r = await fetch(`${API}/t/${p}`, { method, headers: body ? { "content-type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
+    const text = await r.text(); let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (e) { }
+    return { ok: r.ok, status: r.status, data };
+  }
+  // Take the server's copy into the page; render only when something changed so typing is not disturbed.
+  function adopt(doc) {
+    const m = merge(st, norm(doc));
+    if (JSON.stringify(m) !== JSON.stringify(st)) { st = m; saveLocal(); render(); }
+    return m;
+  }
+  function setCloud(msg, cls) { cloudMsg = msg; cloudCls = cls || ""; cloudView(); }
+  function cloudView() {
+    const on = !!pin;
+    g("pinform").hidden = on; g("pinon").hidden = !on; g("pinhint").hidden = on;
+    if (on) g("pinshow").textContent = pin;
+    g("pinopen").disabled = g("pinnew").disabled = g("pin").disabled = !API;
+    const el = g("cloud");
+    el.textContent = API ? cloudMsg : "no server configured: this page keeps its count in this browser only";
+    el.className = "disk" + (cloudCls ? " " + cloudCls : "");
+  }
+  async function pinOpen(p) {
+    if (!API) return;
+    if (!validPin(p)) { setCloud("a PIN is 5 digits", "warn"); return; }
+    setCloud("opening…");
+    try {
+      const r = await api("GET", p);
+      if (r.status === 404) { setCloud(`no tally under ${p} · New tally creates one`, "warn"); return; }
+      if (!r.ok) throw new Error(`server said ${r.status}`);
+      rememberPin(p);
+      const srv = norm(r.data), m = adopt(srv);
+      setCloud(`PIN ${pin} · synced`); toast("OPENED", false);
+      if (JSON.stringify(m) !== JSON.stringify(srv)) schedulePush();   // this browser held something the server lacked
+    } catch (e) { setCloud(`could not reach the server: ${e.message}`, "err"); }
+  }
+  async function pinNew(p) {
+    if (!API) return;
+    const typed = !!p;
+    if (typed && !validPin(p)) { setCloud("a PIN is 5 digits", "warn"); return; }
+    setCloud("creating…");
+    try {
+      for (let i = 0; i < 20; i++) {
+        const cand = typed ? p : randomPin();
+        const r = await api("POST", cand, st);
+        if (r.status === 409) { if (typed) { setCloud(`${cand} is taken · pick another, or leave the box empty for a random one`, "warn"); return; } continue; }
+        if (!r.ok) throw new Error(`server said ${r.status}`);
+        rememberPin(cand); adopt(r.data);
+        setCloud(`PIN ${pin} · write it down, it is the only way back in`, "warn"); toast("NEW TALLY", true);
+        return;
+      }
+      setCloud("could not find a free PIN; try again", "err");
+    } catch (e) { setCloud(`could not reach the server: ${e.message}`, "err"); }
+  }
+  function pinOut() {
+    if (!confirm(`Forget PIN ${pin} on this device? The tally stays on the server and the PIN opens it again.`)) return;
+    rememberPin(""); g("pin").value = ""; setCloud("");
+  }
+  function schedulePush() { if (!pin || !API) return; pendingPush = true; clearTimeout(pushTimer); pushTimer = setTimeout(cloudPush, 500); }
+  async function cloudPush() {
+    if (!pin || !API || pushing) return;
+    pushing = true; pendingPush = false;
+    try {
+      const r = await api("PUT", pin, st);
+      if (r.status === 404) setCloud(`no tally under ${pin} on the server any more · Switch PIN, or New tally re-creates it from this browser`, "err");
+      else if (!r.ok) throw new Error(`server said ${r.status}`);
+      else { adopt(r.data); setCloud(`PIN ${pin} · synced`); }
+    } catch (e) { setCloud(`not synced: ${e.message} · retrying`, "err"); setTimeout(schedulePush, 5000); }
+    pushing = false;
+    if (pendingPush) schedulePush();
+  }
+  async function cloudPull() {
+    if (!pin || !API) return;
+    try {
+      const r = await api("GET", pin);
+      if (r.status === 404) { setCloud(`no tally under ${pin} on the server · Switch PIN, or New tally re-creates it from this browser`, "err"); return; }
+      if (!r.ok) throw new Error(`server said ${r.status}`);
+      const srv = norm(r.data), m = adopt(srv);
+      setCloud(`PIN ${pin} · synced`);
+      if (JSON.stringify(m) !== JSON.stringify(srv)) schedulePush();
+    } catch (e) { setCloud(`not synced: ${e.message}`, "err"); }
   }
 
   // Streak: dailyish. A day qualifies with at least STREAK_MIN reps, summed over every session filed under that date
@@ -388,12 +509,19 @@
     st.points = 0; st.started = ""; st.label = ""; save(); render();
   };
   document.addEventListener("keydown", ev => {
-    if (ev.target === g("threshold") || ev.target === g("label")) return;
+    if (ev.target === g("threshold") || ev.target === g("label") || ev.target === g("pin")) return;
     if (ev.code === "Space" || ev.code === "Enter") { ev.preventDefault(); rep(); }
   });
   g("save").onclick = saveClick;
-  window.addEventListener("beforeunload", ev => { if (dirty() && (linked || !FSA)) { ev.preventDefault(); ev.returnValue = ""; } });
-  render(); status();
+  g("pin").addEventListener("input", ev => { ev.target.value = ev.target.value.replace(/\D/g, "").slice(0, 5); });
+  g("pin").addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); pinOpen(g("pin").value); } });
+  g("pinopen").onclick = () => pinOpen(g("pin").value);
+  g("pinnew").onclick = () => pinNew(g("pin").value);
+  g("pinout").onclick = pinOut;
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") cloudPull(); });
+  window.addEventListener("beforeunload", ev => { if ((dirty() && (linked || !FSA)) || pendingPush || pushing) { ev.preventDefault(); ev.returnValue = ""; } });
+  render(); status(); cloudView();
+  if (pin) cloudPull();
   // A remembered file: merge on open when the browser still allows it without asking; otherwise say so and wait for Save.
   if (FSA) recallHandle().then(async h => {
     if (!h) return;

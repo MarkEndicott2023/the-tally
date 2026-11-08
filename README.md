@@ -3,13 +3,34 @@
 A one-page counter for prediction-error reps: attempt or predict, get the verdict, take the feedback, click once. Every click is a point. The session closes when points reach a threshold you set.
 
 ```
-index.html     the whole thing
-tally.json     the record, wherever you save it
+index.html        the whole page
+tally.json        the record, wherever you save it (file mode)
+database/server.py  the server: one tally per PIN, in a SQLite file on this Mac (standard library only)
+database/tally.db   that database, created on first run; not committed
 ```
 
 ## Run
 
-Open `index.html` in Chrome or Edge. Nothing to install or run.
+Open `index.html` in Chrome or Edge, or visit https://markendicott2023.github.io/the-tally/ (GitHub Pages, from `main`). Without a server the page keeps its count in that browser only.
+
+## PIN (2026-11-08)
+
+A PIN is the whole account: five digits, no name, no email. **New tally** creates one under the typed PIN, or a random free one when the box is empty, and shows the PIN; it is the only way back in. **Open** fetches the tally under a PIN, merges it with the browser's copy, and keeps the two in step from then on: every change is pushed, the server merges both sides, and returning to the tab pulls again, so a phone and a laptop on one PIN converge. **Switch PIN** forgets the PIN on that device and leaves the tally on the server.
+
+Known limit, by design of "extremely simple": there are 100,000 PINs and no rate limit, so a PIN is a weak secret; anyone holding it holds the tally.
+
+### Server
+
+`database/server.py` is the whole backend: Python 3 standard library, SQLite, one table (`pin`, `doc`, `updated`). Writes run under `BEGIN IMMEDIATE`, so two devices pushing the same PIN at once serialize and both land in the merge. The endpoints are `GET`, `POST` (create, 409 if taken) and `PUT` (merge) on `/t/<pin>`.
+
+```
+python3 database/server.py                  # 127.0.0.1:8766, database/tally.db
+python3 database/server.py --port 8766 --db ~/tally.db --host 0.0.0.0
+```
+
+Point the page at it: `const API = "http://127.0.0.1:8766"` in `index.html` (no trailing slash). From the Pages site over HTTPS, Chrome 142 and later asks once whether the site may reach your local network (its Local Network Access permission, [developer.chrome.com](https://developer.chrome.com/blog/local-network-access)); click Allow and the loopback call works on this Mac. Anyone else, or the phone, needs the server reachable over HTTPS, which is what the-register's Tailscale Serve proxy already does for the page (`tailscale serve` can map a second path to this port). Reaching it from outside the tailnet is Tailscale Funnel or a reverse proxy; that step is deliberately not set up here.
+
+Back the database up like any file: copy `database/tally.db` while the server is stopped, or `sqlite3 database/tally.db ".backup ~/tally-backup.db"` while it runs.
 
 ## Phone (2026-11-02)
 
