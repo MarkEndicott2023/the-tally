@@ -41,10 +41,11 @@ Back the database up like any file: copy `database/tally.db` while the server is
 - **REP**, or space or enter, adds a point and floats "+1 POINT". The click that reaches the threshold says "THRESHOLD MET" and turns the bar gold.
 - **Threshold** is the session quota. Change it any time.
 - **Label** names the session (optimization, big data, python) and is filed with it.
+- **Minutes** is optional: how long the session ran, typed as a whole number up to 1440. It is filed with the session and shows in its row; a session filed without it reads "– min".
 - **Streak** is dailyish. It counts days with 2 or more reps, summed across that day's sessions and the live one, and forgives a single day off between them; two days off in a row break it. The threshold plays no part. Gold is intact; ice means the chain is alive and today is still open, and the label reads "today or it breaks" when yesterday was already the day off; 0 means the chain broke. The rep that brings today to 2 and extends the streak floats "STREAK n", or "BEST STREAK n" when it sets a record.
 - **Best** is the longest streak on record, the live one included. Gold when the live streak is the record.
 - **− 1** takes back a misclick.
-- **New session** files the count, date and label, then resets. The date is the day of the session's first rep, so a page left open for days files under the day the reps happened. Filed sessions list below, newest first. Click a label to rename it, click a date to change it; **✕** deletes the session.
+- **New session** files the count, date, label and minutes, then resets. The date is the day of the session's first rep, so a page left open for days files under the day the reps happened. Filed sessions list below, newest first. Click a label to rename it, click a date to change it, click the minutes to set or change them; **✕** deletes the session.
 
 ## Save
 

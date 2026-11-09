@@ -39,15 +39,23 @@ class NotATally(ValueError):
 
 
 def empty():
-    return {"points": 0, "threshold": 20, "started": "", "label": "", "sessions": [], "deleted": [], "updated": 0}
+    return {"points": 0, "threshold": 20, "started": "", "label": "", "minutes": 0, "sessions": [], "deleted": [], "updated": 0}
+
+
+MAX_MIN = 1440  # a day; the page caps a session's minutes at the same figure
 
 
 def as_int(v, lo):
     try:
         n = int(float(v))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         n = 0
     return max(lo, n)
+
+
+def as_min(v):
+    """A session's length in whole minutes, 0 when not given."""
+    return min(MAX_MIN, as_int(v, 0))
 
 
 def as_str(v, n):
@@ -73,6 +81,7 @@ def norm(d):
     x["threshold"] = as_int(d.get("threshold"), 1)
     x["started"] = d.get("started") if is_date(d.get("started")) else ""
     x["label"] = as_str(d.get("label"), 40)
+    x["minutes"] = as_min(d.get("minutes"))
     x["updated"] = as_int(d.get("updated"), 0)
     raw_del = d.get("deleted") if isinstance(d.get("deleted"), list) else []
     deleted = {s[:80] for s in raw_del if isinstance(s, str)}
@@ -82,7 +91,8 @@ def norm(d):
             continue
         sid = s.get("id") or f"{s.get('date')}|{s.get('label') or ''}|{s.get('points')}|{s.get('threshold')}"
         sessions.append({"id": as_str(sid, 80), "date": s["date"], "label": as_str(s.get("label"), 40),
-                         "points": as_int(s.get("points"), 0), "threshold": as_int(s.get("threshold"), 1)})
+                         "points": as_int(s.get("points"), 0), "threshold": as_int(s.get("threshold"), 1),
+                         "minutes": as_min(s.get("minutes"))})
     x["sessions"] = [s for s in sessions if s["id"] not in deleted]
     x["deleted"] = sorted(deleted)
     return x
@@ -98,7 +108,7 @@ def merge(a, b):
                 by[s["id"]] = s
     out = empty()
     out.update(points=newer["points"], threshold=newer["threshold"], label=newer["label"], started=newer["started"],
-               sessions=list(by.values()), deleted=sorted(tomb), updated=max(a["updated"], b["updated"]))
+               minutes=newer["minutes"], sessions=list(by.values()), deleted=sorted(tomb), updated=max(a["updated"], b["updated"]))
     return out
 
 

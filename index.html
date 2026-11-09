@@ -92,7 +92,11 @@
   .note p { margin: 10px 0 0; color: var(--txt); font-size: 15px; line-height: 1.5; }
 
   /* sessions */
-  .sessions { display: grid; grid-template-columns: auto auto 1fr auto auto auto; gap: 8px 18px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em; align-items: baseline; }
+  .sessions .m { color: var(--ice); text-align: right; cursor: text; white-space: nowrap; }
+  .sessions .m.none { color: var(--dim); }
+  .sessions .m:hover { text-shadow: var(--halo); }
+  .stat input::placeholder { color: var(--dim); }
+  .sessions { display: grid; grid-template-columns: auto auto 1fr auto auto auto auto; gap: 8px 18px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em; align-items: baseline; }
   .sessions .d { color: var(--ice); cursor: text; }
   .sessions .d:hover { text-shadow: var(--halo); }
   .sessions .l { color: var(--white); font-family: var(--font-ui); font-weight: 500; font-size: 13px; letter-spacing: .06em; cursor: text; max-width: 22em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -135,6 +139,7 @@
       <div class="stat"><div class="lbl">Session</div><div class="val" id="sessno">1</div></div>
       <div class="stat"><div class="lbl" id="streaklbl">Streak</div><div class="val" id="streak" title="days with 2 or more reps, one day off between them forgiven; two days off in a row break it; the live session counts toward today">0</div></div>
       <div class="stat"><div class="lbl">Best</div><div class="val" id="best" title="longest streak on record">0</div></div>
+      <div class="stat"><div class="lbl">Minutes</div><input type="number" id="minutes" min="0" max="1440" step="1" inputmode="numeric" placeholder="—" title="how long this session ran, in minutes; optional, filed with it"></div>
       <div class="stat"><div class="lbl">Label</div><input type="text" id="label" class="text" placeholder="optimization, big data, python…" maxlength="40" title="what this session is about; filed with it"></div>
     </div>
   </header>
@@ -181,6 +186,7 @@
     A rep is one prediction-error cycle: attempt or predict, get the verdict, take the feedback. Every click is one point. The session closes when points reach the threshold; keep clicking past it if you like.
     <span>Label</span> names the session (optimization, big data, python…) and is filed with it; click a filed label to rename it, click its date to change it, <span>✕</span> deletes the session.
     A session is dated by its first rep, so a page left open for days files under the day the reps happened.
+    <span>Minutes</span> is optional: type how long the session ran and it is filed with it; click a filed session's minutes to set or change them.
     <span>New session</span> files the current count and resets to zero.
     <span>Streak</span> is dailyish: it counts days with 2 or more reps, summed across that day's sessions and the live one, and forgives a single day off between them; two days off in a row break it. The threshold plays no part. Gold is intact, ice means the chain is alive and today is still open (the label says when today is the last chance), 0 means the chain is broken.
     <span>Best</span> is the longest streak on record; it turns gold when the live streak is the record.
@@ -194,16 +200,19 @@
   const g = id => document.getElementById(id);
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  // State is one document: { points, threshold, label, started, sessions: [{id, date, label, points, threshold}],
-  // deleted: [ids], updated }. Every change goes to this browser's localStorage at once. Save links the document
+  // State is one document: { points, threshold, label, minutes, started, sessions: [{id, date, label, points,
+  // threshold, minutes}], deleted: [ids], updated }. `minutes` is the session's length as typed, 0 when not given.
+  // Every change goes to this browser's localStorage at once. Save links the document
   // to a tally.json you choose (File System Access API): the first click picks the file, reads whatever it already
   // holds, merges the two, and writes; after that every change, deletes included, is written to the file for the
   // rest of the visit. The next visit remembers the file: if the browser still allows it, it merges on open by
   // itself, otherwise one click on Save reconnects. `deleted` carries tombstones so a session deleted on the page
   // stays deleted through a merge. A browser without the picker API gets a download from Save instead.
   // `started` is the date of the live session's first rep, "" until there is one; the session files under it.
-  const empty = () => ({ points: 0, threshold: 20, started: "", label: "", sessions: [], deleted: [], updated: 0 });
+  const empty = () => ({ points: 0, threshold: 20, started: "", label: "", minutes: 0, sessions: [], deleted: [], updated: 0 });
   const uid = () => Math.random().toString(36).slice(2, 10);
+  const MAX_MIN = 1440;   // a day; the server caps at the same figure
+  const mins = v => Math.min(MAX_MIN, Math.max(0, Math.round(Number(v) || 0)));
   const SKEY = "tally_savedAt", FSA = "showSaveFilePicker" in window;
   const TYPES = [{ description: "JSON", accept: { "application/json": [".json"] } }];
   let st = load(), handle = null, linked = false, lastErr = "";
@@ -225,14 +234,14 @@
   const markSaved = () => { try { localStorage.setItem(SKEY, String(st.updated)); } catch (e) { } };
   const dirty = () => (st.updated || 0) > savedAt();
   // Union of two copies: sessions by id minus every tombstone from either side; the current count, threshold,
-  // label and start date from whichever copy is newer.
+  // label, minutes and start date from whichever copy is newer.
   function merge(a, b) {
     const newer = (b.updated || 0) > (a.updated || 0) ? b : a;
     const tomb = new Set([...(a.deleted || []), ...(b.deleted || [])]);
     const by = new Map();
     [a, b].forEach(x => (x.sessions || []).forEach(s => { if (!tomb.has(s.id)) by.set(s.id, s); }));
     return Object.assign(empty(), { points: newer.points, threshold: newer.threshold, label: newer.label, started: newer.started,
-      sessions: [...by.values()], deleted: [...tomb], updated: Math.max(a.updated || 0, b.updated || 0) });
+      minutes: mins(newer.minutes), sessions: [...by.values()], deleted: [...tomb], updated: Math.max(a.updated || 0, b.updated || 0) });
   }
   function save() {
     st.updated = Date.now(); saveLocal();
@@ -451,6 +460,7 @@
     g("best").textContent = sk.best;
     g("best").className = "val" + (sk.best > 0 && sk.n === sk.best && !sk.open ? " gold" : "");
     if (document.activeElement !== g("label")) g("label").value = st.label || "";
+    if (document.activeElement !== g("minutes")) g("minutes").value = mins(st.minutes) || "";
     g("fill").style.width = `${Math.min(100, p / t * 100)}%`;
     g("prog").classList.toggle("done", done);
     g("left").textContent = done ? `threshold met${p > t ? ` · +${p - t} over` : ""}` : `${t - p} to go`;
@@ -461,7 +471,7 @@
     g("notep").textContent = done ? `Session ${st.sessions.length + 1} closed: ${p} of ${t} reps. File it with New session, or keep going.` : "";
     // newest first; the index points back into st.sessions for rename and delete
     const rows = st.sessions.map((s, i) => ({ s, i })).reverse().slice(0, 20);
-    g("sessions").innerHTML = rows.length ? rows.map(({ s, i }) => `<span class="d" data-date="${i}" title="click to change the date">${esc(s.date)}</span><span class="l ${s.label ? "" : "none"}" data-rename="${i}" title="click to rename">${s.label ? esc(s.label) : "no label"}</span><span class="bar ${s.points >= s.threshold ? "ok" : ""}"><i style="width:${Math.min(100, s.points / Math.max(1, s.threshold) * 100)}%"></i></span><span class="n">${s.points} / ${s.threshold}</span><span class="${s.points >= s.threshold ? "ok" : "no"}">${s.points >= s.threshold ? "met" : "short"}</span><button class="x" data-del="${i}" title="delete this session">✕</button>`).join("")
+    g("sessions").innerHTML = rows.length ? rows.map(({ s, i }) => `<span class="d" data-date="${i}" title="click to change the date">${esc(s.date)}</span><span class="l ${s.label ? "" : "none"}" data-rename="${i}" title="click to rename">${s.label ? esc(s.label) : "no label"}</span><span class="bar ${s.points >= s.threshold ? "ok" : ""}"><i style="width:${Math.min(100, s.points / Math.max(1, s.threshold) * 100)}%"></i></span><span class="n">${s.points} / ${s.threshold}</span><span class="m ${mins(s.minutes) ? "" : "none"}" data-min="${i}" title="click to set how long this session ran">${mins(s.minutes) ? `${mins(s.minutes)} min` : "– min"}</span><span class="${s.points >= s.threshold ? "ok" : "no"}">${s.points >= s.threshold ? "met" : "short"}</span><button class="x" data-del="${i}" title="delete this session">✕</button>`).join("")
       : `<span class="empty" style="grid-column:1/-1">none filed yet</span>`;
     g("sessions").querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
       const s = st.sessions[Number(b.dataset.del)]; if (!s) return;
@@ -481,6 +491,14 @@
       const d = v.trim();
       if (!validDate(d)) { alert(`"${d}" is not a date like 2026-11-02; unchanged.`); return; }
       s.date = d; save(); render();
+    });
+    g("sessions").querySelectorAll("[data-min]").forEach(el => el.onclick = () => {
+      const s = st.sessions[Number(el.dataset.min)]; if (!s) return;
+      const v = prompt("Minutes this session ran (blank for none):", mins(s.minutes) || ""); if (v === null) return;
+      const t = v.trim();
+      if (t && !/^\d{1,4}$/.test(t)) { alert(`"${t}" is not a whole number of minutes; unchanged.`); return; }
+      if (Number(t) > MAX_MIN) { alert(`${t} is more than a day (${MAX_MIN} minutes); unchanged.`); return; }
+      s.minutes = mins(t); save(); render();
     });
   }
   function toast(text, gold) {
@@ -502,14 +520,18 @@
   g("undo").onclick = () => { if (st.points > 0) { st.points -= 1; if (!st.points) st.started = ""; save(); toast("−1", false); render(); } };
   g("threshold").addEventListener("change", ev => { st.threshold = Math.max(1, Math.round(Number(ev.target.value) || 1)); save(); render(); });
   g("label").addEventListener("input", ev => { st.label = ev.target.value.slice(0, 40); save(); });
+  // Typing does not re-render; leaving the field shows the clamped whole number that was stored.
+  g("minutes").addEventListener("input", ev => { st.minutes = mins(ev.target.value); save(); });
+  g("minutes").addEventListener("change", ev => { ev.target.value = mins(st.minutes) || ""; });
   g("newsess").onclick = () => {
     if (!st.points) return;
-    if (!confirm(`File session ${st.sessions.length + 1}${st.label ? ` "${st.label}"` : ""} at ${st.points} of ${st.threshold} and start a new one?`)) return;
-    st.sessions.push({ id: uid(), date: st.started || today(), label: (st.label || "").trim(), points: st.points, threshold: st.threshold });
-    st.points = 0; st.started = ""; st.label = ""; save(); render();
+    const m = mins(st.minutes);
+    if (!confirm(`File session ${st.sessions.length + 1}${st.label ? ` "${st.label}"` : ""} at ${st.points} of ${st.threshold}${m ? `, ${m} min,` : ""} and start a new one?`)) return;
+    st.sessions.push({ id: uid(), date: st.started || today(), label: (st.label || "").trim(), points: st.points, threshold: st.threshold, minutes: m });
+    st.points = 0; st.started = ""; st.label = ""; st.minutes = 0; save(); render();
   };
   document.addEventListener("keydown", ev => {
-    if (ev.target === g("threshold") || ev.target === g("label") || ev.target === g("pin")) return;
+    if (ev.target === g("threshold") || ev.target === g("label") || ev.target === g("pin") || ev.target === g("minutes")) return;
     if (ev.code === "Space" || ev.code === "Enter") { ev.preventDefault(); rep(); }
   });
   g("save").onclick = saveClick;
