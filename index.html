@@ -231,9 +231,9 @@
     <div class="target" id="target"></div>
     <div class="bench">
       <span class="bl">Benchmarks · reps a month</span>
-      <label>10 at <input type="number" id="b10" min="1" step="1" inputmode="numeric" title="reps in a month that score 10"></label>
-      <label>15 at <input type="number" id="b15" min="1" step="1" inputmode="numeric" title="reps in a month that score 15"></label>
-      <label>20 at <input type="number" id="b20" min="1" step="1" inputmode="numeric" title="reps in a month that score 20"></label>
+      <label>10 at <input type="number" id="b10" min="1" step="1" inputmode="numeric" title="reps in a month for level 10"></label>
+      <label>15 at <input type="number" id="b15" min="1" step="1" inputmode="numeric" title="reps in a month for level 15"></label>
+      <label>20 at <input type="number" id="b20" min="1" step="1" inputmode="numeric" title="reps in a month for level 20"></label>
       <button id="bdef" hidden title="back to the register's band: 80 / 160 / 240">Default</button>
       <span class="bmsg" id="bmsg"></span>
     </div>
@@ -253,7 +253,7 @@
     <span>New session</span> files the current count and resets to zero.
     <span>Streak</span> is dailyish: it counts days with 2 or more reps, summed across that day's sessions and the live one, and forgives a single day off between them; two days off in a row break it. The threshold plays no part. Gold is intact, ice means the chain is alive and today is still open (the label says when today is the last chance), 0 means the chain is broken.
     <span>Best</span> is the longest streak on record; it turns gold when the live streak is the record.
-    <span>Benchmarks</span> are the reps in a month that score 10, 15 and 20 in Stats (5 is always 0); the default is the-register's 80 / 160 / 240, type your own three rising numbers to use a static benchmark of your own, and they are filed with the tally like the threshold.
+    <span>Benchmarks</span> are the reps in a month that reach level 10, 15 and 20 in Stats (level 5 is always 0 reps); the default is the-register's 80 / 160 / 240, type your own three rising numbers to use a static benchmark of your own, and they are filed with the tally like the threshold.
     <span>Save</span> links the page to a tally.json you choose: it reads what the file already holds, merges, writes, and from then on every change goes to the file, deletes included.
     <div class="disk" id="disk"></div>
   </div>
@@ -266,7 +266,7 @@
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   // State is one document: { points, threshold, label, minutes, started, band, sessions: [{id, date, label, points,
   // threshold, minutes}], deleted: [ids], updated }. `minutes` is the session's length as typed, 0 when not given.
-  // `band` is the user's monthly benchmark: reps that score 10, 15 and 20 (5 is always 0 reps); the default is
+  // `band` is the user's monthly benchmark: reps that reach level 10, 15 and 20 (level 5 is always 0 reps); the default is
   // the-register's band, and the Stats panel lets anyone set their own static rungs.
   // Every change goes to this browser's localStorage at once. Save links the document
   // to a tally.json you choose (File System Access API): the first click picks the file, reads whatever it already
@@ -559,7 +559,7 @@
       kpi("Today", todayReps, next ? `need <b>${f1(need(next[1]))}</b>/day for ${next[0]}` : "band topped", next && todayReps >= need(next[1]) && todayReps > 0),
       kpi("Last 7 days", week, `<b>${f1(pace7)}</b>/day`),
       kpi("This month", month, monthDays ? `<b>${f1(month / monthDays)}</b>/session day` : "none yet"),
-      kpi("Score now", f1(sc), next ? `<b>${next[1] - month}</b> to ${next[0]}` : "20 · topped", sc >= 20),
+      kpi("Level now", f1(sc), next ? `<b>${next[1] - month}</b> to ${next[0]}` : "20 · topped", sc >= 20),
       kpi("Month end", Math.round(projected), `→ <b>${f1(score(projected))}</b> · ${plural(dim - dom, "day")} left`, score(projected) >= 20),
       kpi("All time", total, days.length ? `<b>${f1(total / days.length)}</b>/session day · <b>${f1(total / span)}</b>/day` : "nothing filed"),
     ].join("");
