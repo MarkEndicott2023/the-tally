@@ -3,90 +3,143 @@
   "threshold": 4,
   "started": "",
   "label": "",
+  "minutes": 0,
   "sessions": [
     {
       "id": "5fb9mdy4",
-      "date": "2026-10-28",
+      "date": "2026-10-29",
       "label": "convex optimization & CVXPY",
       "points": 8,
-      "threshold": 10
+      "threshold": 10,
+      "minutes": 105
     },
     {
       "id": "5zde9f9a",
       "date": "2026-10-29",
       "label": "convex optimization & CVXPY",
       "points": 3,
-      "threshold": 4
+      "threshold": 4,
+      "minutes": 45
     },
     {
       "id": "urp3gfaz",
       "date": "2026-10-30",
       "label": "convex optimization & CVXPY",
       "points": 4,
-      "threshold": 4
+      "threshold": 4,
+      "minutes": 60
     },
     {
       "id": "k4ztdxho",
       "date": "2026-11-02",
       "label": "orthogonal projection",
       "points": 3,
-      "threshold": 4
+      "threshold": 4,
+      "minutes": 15
     },
     {
       "id": "t4amze9n",
       "date": "2026-11-02",
       "label": "stationarity",
       "points": 3,
-      "threshold": 4
+      "threshold": 4,
+      "minutes": 90
     },
     {
       "id": "z334yf8g",
       "date": "2026-11-03",
       "label": "orthogonal projection & stationarity",
       "points": 6,
-      "threshold": 8
+      "threshold": 8,
+      "minutes": 90
     },
     {
       "id": "qdqqcxwg",
       "date": "2026-11-03",
       "label": "orthogonal projection & stationarity",
       "points": 2,
-      "threshold": 3
+      "threshold": 3,
+      "minutes": 15
     },
     {
       "id": "u2qdrayp",
       "date": "2026-11-03",
       "label": "orthogonal projection & stationarity",
       "points": 7,
-      "threshold": 4
+      "threshold": 4,
+      "minutes": 55
     },
     {
       "id": "y7kfo1r1",
       "date": "2026-11-04",
       "label": "convexity, projection, & stationarity",
       "points": 5,
-      "threshold": 4
+      "threshold": 4,
+      "minutes": 30
     },
     {
       "id": "5tca4duq",
       "date": "2026-11-05",
       "label": "convexity, projection, & stationarity",
       "points": 5,
-      "threshold": 4
+      "threshold": 4,
+      "minutes": 60
     },
     {
       "id": "58vxdp7w",
       "date": "2026-11-06",
       "label": "convexity, projection, & stationarity",
       "points": 4,
-      "threshold": 4
+      "threshold": 4,
+      "minutes": 60
     },
     {
       "id": "ohimusks",
       "date": "2026-11-07",
-      "label": "pandas & misra-gries",
+      "label": "python & misra-gries",
       "points": 3,
-      "threshold": 4
+      "threshold": 4,
+      "minutes": 15
+    },
+    {
+      "id": "4k0zn7en",
+      "date": "2026-11-09",
+      "label": "newton, convexity, projection, & stationarity",
+      "points": 18,
+      "threshold": 12,
+      "minutes": 135
+    },
+    {
+      "id": "1ullil1z",
+      "date": "2026-11-09",
+      "label": "python, misra-gries, SQL",
+      "points": 3,
+      "threshold": 4,
+      "minutes": 30
+    },
+    {
+      "id": "0p9u927h",
+      "date": "2026-11-09",
+      "label": "SQL",
+      "points": 3,
+      "threshold": 4,
+      "minutes": 30
+    },
+    {
+      "id": "euxqvn6x",
+      "date": "2026-11-10",
+      "label": "",
+      "points": 15,
+      "threshold": 15,
+      "minutes": 90
+    },
+    {
+      "id": "jf477f0c",
+      "date": "2026-11-10",
+      "label": "SQL",
+      "points": 4,
+      "threshold": 4,
+      "minutes": 30
     }
   ],
   "deleted": [
@@ -96,5 +149,5 @@
     "38h5sxjp",
     "igdpymjk"
   ],
-  "updated": 1794175577438
+  "updated": 1794339168087
 }

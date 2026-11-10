@@ -55,11 +55,59 @@
   .panel > * { position: relative; z-index: 1; }
   .panel + .panel { margin-top: 22px; }
   .panel h2 { margin: 0 0 14px; font-size: 11px; letter-spacing: .35em; color: var(--ice); text-transform: uppercase; font-weight: 500; }
+  /* stats: tiles, the month against the register's band, totals by subject */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 34px 28px; margin: 10px 0 44px; }
+  .kpi .lbl { font-size: 10px; letter-spacing: .3em; color: var(--ice); text-transform: uppercase; font-weight: 500; }
+  .kpi .val { font-family: var(--font-mono); font-size: 26px; color: var(--white); margin-top: 10px; text-shadow: var(--halo); font-variant-numeric: tabular-nums; line-height: 1; }
+  .kpi .val.gold { color: var(--yel); text-shadow: 0 0 6px rgba(255,209,102,.5), 0 0 16px rgba(255,209,102,.45); }
+  .kpi .cap { font-family: var(--font-mono); font-size: 11px; color: var(--dim); margin-top: 10px; letter-spacing: .04em; line-height: 1.5; }
+  .kpi .cap b { color: var(--txt); font-weight: normal; }
+  .target { margin: 0 0 48px; }
+  .target .bar { position: relative; height: 14px; background: rgba(140,230,226,.07); border: 1px solid var(--frame2); }
+  .target .bar .tick { position: absolute; top: -5px; bottom: -5px; width: 1px; background: var(--frame); z-index: 3; }
+  .target .bar .tick b { position: absolute; top: 100%; right: 0; margin-top: 7px; font-family: var(--font-mono); font-size: 10px; color: var(--ice); font-weight: normal; letter-spacing: .06em; white-space: nowrap; }
+  .target .line { margin-top: 36px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); letter-spacing: .04em; line-height: 1.7; }
+  .target .line b { color: var(--white); font-weight: normal; text-shadow: var(--halo); }
+  .bench { display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; margin: -14px 0 44px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); letter-spacing: .04em; }
+  .bench .bl { font-family: var(--font-ui); font-size: 10px; letter-spacing: .3em; color: var(--ice); text-transform: uppercase; font-weight: 500; margin-right: 6px; }
+  .bench label { display: inline-flex; align-items: center; gap: 8px; }
+  .bench input { background: var(--panel2); color: var(--white); border: 1px solid var(--frame2); font-family: var(--font-mono); font-size: 13px; width: 5.5em; padding: 5px 8px; text-align: right; color-scheme: dark; letter-spacing: .04em; }
+  .bench input:focus { outline: none; border-color: var(--frame); box-shadow: 0 0 8px rgba(40,210,200,.22); }
+  .bench button { font-size: 10px; padding: 6px 12px; letter-spacing: .2em; }
+  .bench .bmsg { color: var(--yel); }
+  .bench .bmsg:empty { display: none; }
+  .subjects { display: grid; grid-template-columns: minmax(120px, 1fr) repeat(6, auto); gap: 14px 22px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em; align-items: baseline; padding-bottom: 6px; }
+  .subjects .h { padding-bottom: 4px; }
+  .subjects .h { color: var(--ice); font-size: 10px; letter-spacing: .25em; text-transform: uppercase; font-family: var(--font-ui); font-weight: 500; }
+  .subjects .h.r { text-align: right; }
+  .subjects .l { color: var(--white); font-family: var(--font-ui); font-weight: 500; font-size: 13px; letter-spacing: .06em; overflow-wrap: anywhere; line-height: 1.35; }
+  .subjects .l.none { color: var(--dim); font-style: italic; font-weight: 300; }
+  .subjects .l small { color: var(--yel); font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; font-weight: normal; }
+  .subjects .r { text-align: right; color: var(--txt); }
+  .subjects .r.dim { color: var(--dim); }
+  @media (max-width: 600px) { .subjects { grid-template-columns: minmax(90px, 1fr) repeat(3, auto); } .subjects .h:nth-child(n+5), .subjects .hide-sm { display: none; } }
 
-  /* progress */
+  /* progress. Both bars (session, month) share one build: the track carries a single ice → white → red gradient,
+     the fill uncovers it from the left (a dark cover retreats as --p grows), a bright head marks the edge, and a
+     slow sheen runs along the lit part. Red is the far end of the scale, not a warning. */
   .prog { position: relative; height: 18px; background: rgba(140,230,226,.07); border: 1px solid var(--frame2); overflow: hidden; }
-  .prog i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, rgba(120,210,205,.5), var(--white)); box-shadow: var(--halo); transition: width .25s ease-out; }
-  .prog.done i { background: linear-gradient(90deg, rgba(255,209,102,.5), var(--yel)); box-shadow: 0 0 10px rgba(255,209,102,.5); }
+  .prog::before, .target .bar::before { content: ""; position: absolute; inset: 0; z-index: 0;
+    background: linear-gradient(90deg, var(--ice) 0%, #ffffff 42%, #ff8d9f 72%, var(--red) 100%); }
+  .prog::after, .target .bar::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; left: calc(var(--p, 0) * 1%); z-index: 1;
+    background: rgba(2, 10, 12, .96); transition: left .25s ease-out; }
+  .prog i, .target .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: 2; background: transparent; transition: width .25s ease-out; }
+  .prog i::before, .target .bar i::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(100deg, transparent 0 38%, rgba(255,255,255,.38) 50%, transparent 62% 100%); background-size: 240% 100%;
+    animation: sheen 3.2s linear infinite; }
+  .prog i::after, .target .bar i::after { content: ""; position: absolute; right: -1px; top: -4px; bottom: -4px; width: 2px; background: #fff;
+    box-shadow: 0 0 8px rgba(255,255,255,.95), 0 0 18px rgba(255,59,92,.65); }
+  .prog i[style*="width: 0%"]::after, .target .bar i[style*="width:0%"]::after { display: none; }
+  .prog.done::after { background: transparent; }
+  .prog.done i::after, .target .bar i.gold::after { box-shadow: 0 0 10px #fff, 0 0 24px var(--red), 0 0 44px rgba(255,59,92,.7); animation: pulse 1.6s ease-in-out infinite; }
+  .prog .ticks { z-index: 3; }
+  @keyframes sheen { from { background-position: 240% 0; } to { background-position: -240% 0; } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+  @media (prefers-reduced-motion: reduce) { .prog i::before, .target .bar i::before, .prog.done i::after, .target .bar i.gold::after { animation: none; } }
   .progline { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 12px; color: var(--dim); letter-spacing: .06em; margin-top: 8px; }
   .progline b { color: var(--white); font-weight: normal; text-shadow: var(--halo); }
   .prog .ticks { position: absolute; inset: 0; pointer-events: none; }
@@ -96,10 +144,10 @@
   .sessions .m.none { color: var(--dim); }
   .sessions .m:hover { text-shadow: var(--halo); }
   .stat input::placeholder { color: var(--dim); }
-  .sessions { display: grid; grid-template-columns: auto auto 1fr auto auto auto auto; gap: 8px 18px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em; align-items: baseline; }
+  .sessions { display: grid; grid-template-columns: auto auto minmax(48px, 1fr) auto auto auto auto; gap: 8px 18px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .04em; align-items: baseline; }
   .sessions .d { color: var(--ice); cursor: text; }
   .sessions .d:hover { text-shadow: var(--halo); }
-  .sessions .l { color: var(--white); font-family: var(--font-ui); font-weight: 500; font-size: 13px; letter-spacing: .06em; cursor: text; max-width: 22em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sessions .l { color: var(--white); font-family: var(--font-ui); font-weight: 500; font-size: 13px; letter-spacing: .06em; cursor: text; max-width: 24em; overflow-wrap: anywhere; line-height: 1.35; }
   .sessions .l.none { color: var(--dim); font-weight: 300; font-style: italic; }
   .sessions .l:hover { text-shadow: var(--halo); }
   .sessions .x { background: transparent; border-color: transparent; color: var(--red); padding: 2px 6px; font-size: 11px; letter-spacing: 0; }
@@ -140,7 +188,7 @@
       <div class="stat"><div class="lbl" id="streaklbl">Streak</div><div class="val" id="streak" title="days with 2 or more reps, one day off between them forgiven; two days off in a row break it; the live session counts toward today">0</div></div>
       <div class="stat"><div class="lbl">Best</div><div class="val" id="best" title="longest streak on record">0</div></div>
       <div class="stat"><div class="lbl">Minutes</div><input type="number" id="minutes" min="0" max="1440" step="1" inputmode="numeric" placeholder="—" title="how long this session ran, in minutes; optional, filed with it"></div>
-      <div class="stat"><div class="lbl">Label</div><input type="text" id="label" class="text" placeholder="optimization, big data, python…" maxlength="40" title="what this session is about; filed with it"></div>
+      <div class="stat"><div class="lbl">Label</div><input type="text" id="label" class="text" placeholder="optimization, big data, python…" maxlength="80" title="what this session is about; filed with it"></div>
     </div>
   </header>
 
@@ -178,18 +226,34 @@
   </div>
 
   <div class="panel">
+    <h2>Stats</h2>
+    <div class="kpis" id="kpis"></div>
+    <div class="target" id="target"></div>
+    <div class="bench">
+      <span class="bl">Benchmarks · reps a month</span>
+      <label>10 at <input type="number" id="b10" min="1" step="1" inputmode="numeric" title="reps in a month that score 10"></label>
+      <label>15 at <input type="number" id="b15" min="1" step="1" inputmode="numeric" title="reps in a month that score 15"></label>
+      <label>20 at <input type="number" id="b20" min="1" step="1" inputmode="numeric" title="reps in a month that score 20"></label>
+      <button id="bdef" hidden title="back to the register's band: 80 / 160 / 240">Default</button>
+      <span class="bmsg" id="bmsg"></span>
+    </div>
+    <div class="subjects" id="subjects"></div>
+  </div>
+
+  <div class="panel">
     <h2>Sessions</h2>
     <div class="sessions" id="sessions"></div>
   </div>
 
   <div class="foot">
     A rep is one prediction-error cycle: attempt or predict, get the verdict, take the feedback. Every click is one point. The session closes when points reach the threshold; keep clicking past it if you like.
-    <span>Label</span> names the session (optimization, big data, python…) and is filed with it; click a filed label to rename it, click its date to change it, <span>✕</span> deletes the session.
+    <span>Label</span> names the session (optimization, big data, python…) and is filed with it; Stats groups sessions by label. Click a filed label to rename it, click its date to change it, <span>✕</span> deletes the session.
     A session is dated by its first rep, so a page left open for days files under the day the reps happened.
     <span>Minutes</span> is optional: type how long the session ran and it is filed with it; click a filed session's minutes to set or change them.
     <span>New session</span> files the current count and resets to zero.
     <span>Streak</span> is dailyish: it counts days with 2 or more reps, summed across that day's sessions and the live one, and forgives a single day off between them; two days off in a row break it. The threshold plays no part. Gold is intact, ice means the chain is alive and today is still open (the label says when today is the last chance), 0 means the chain is broken.
     <span>Best</span> is the longest streak on record; it turns gold when the live streak is the record.
+    <span>Benchmarks</span> are the reps in a month that score 10, 15 and 20 in Stats (5 is always 0); the default is the-register's 80 / 160 / 240, type your own three rising numbers to use a static benchmark of your own, and they are filed with the tally like the threshold.
     <span>Save</span> links the page to a tally.json you choose: it reads what the file already holds, merges, writes, and from then on every change goes to the file, deletes included.
     <div class="disk" id="disk"></div>
   </div>
@@ -200,8 +264,10 @@
   const g = id => document.getElementById(id);
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  // State is one document: { points, threshold, label, minutes, started, sessions: [{id, date, label, points,
+  // State is one document: { points, threshold, label, minutes, started, band, sessions: [{id, date, label, points,
   // threshold, minutes}], deleted: [ids], updated }. `minutes` is the session's length as typed, 0 when not given.
+  // `band` is the user's monthly benchmark: reps that score 10, 15 and 20 (5 is always 0 reps); the default is
+  // the-register's band, and the Stats panel lets anyone set their own static rungs.
   // Every change goes to this browser's localStorage at once. Save links the document
   // to a tally.json you choose (File System Access API): the first click picks the file, reads whatever it already
   // holds, merges the two, and writes; after that every change, deletes included, is written to the file for the
@@ -209,8 +275,18 @@
   // itself, otherwise one click on Save reconnects. `deleted` carries tombstones so a session deleted on the page
   // stays deleted through a merge. A browser without the picker API gets a download from Save instead.
   // `started` is the date of the live session's first rep, "" until there is one; the session files under it.
-  const empty = () => ({ points: 0, threshold: 20, started: "", label: "", minutes: 0, sessions: [], deleted: [], updated: 0 });
+  // The register's band for reps/month (the-register/ui/data.js, test tally_reps, set 2026-11-10): 10 at 80, 15 at 160,
+  // 20 at 240, about 10 minutes a rep so 3 / 6 / 9 h a week. The page default; a user's own rungs replace it per tally.
+  const DEFAULT_BAND = [80, 160, 240];
+  const BAND_MAX = 100000;
+  // Three whole reps counts, strictly rising, each at least 1; anything else falls back to the default.
+  const normBand = b => {
+    const v = Array.isArray(b) ? b.slice(0, 3).map(x => Math.round(Number(x))) : [];
+    return v.length === 3 && v.every((x, i) => Number.isFinite(x) && x >= 1 && x <= BAND_MAX && (i === 0 || x > v[i - 1])) ? v : DEFAULT_BAND.slice();
+  };
+  const empty = () => ({ points: 0, threshold: 20, started: "", label: "", minutes: 0, band: DEFAULT_BAND.slice(), sessions: [], deleted: [], updated: 0 });
   const uid = () => Math.random().toString(36).slice(2, 10);
+  const LABEL_MAX = 80;   // characters in a session label; the input's maxlength and the server use the same figure
   const MAX_MIN = 1440;   // a day; the server caps at the same figure
   const mins = v => Math.min(MAX_MIN, Math.max(0, Math.round(Number(v) || 0)));
   const SKEY = "tally_savedAt", FSA = "showSaveFilePicker" in window;
@@ -221,6 +297,7 @@
     const x = Object.assign(empty(), d || {});
     if (!Array.isArray(x.sessions)) x.sessions = [];
     if (!Array.isArray(x.deleted)) x.deleted = [];
+    x.band = normBand(x.band);
     x.sessions.forEach(s => { if (!s.id) s.id = `${s.date}|${s.label || ""}|${s.points}|${s.threshold}`; });
     x.sessions = x.sessions.filter(s => !x.deleted.includes(s.id));
     return x;
@@ -234,14 +311,14 @@
   const markSaved = () => { try { localStorage.setItem(SKEY, String(st.updated)); } catch (e) { } };
   const dirty = () => (st.updated || 0) > savedAt();
   // Union of two copies: sessions by id minus every tombstone from either side; the current count, threshold,
-  // label, minutes and start date from whichever copy is newer.
+  // label, minutes, band and start date from whichever copy is newer.
   function merge(a, b) {
     const newer = (b.updated || 0) > (a.updated || 0) ? b : a;
     const tomb = new Set([...(a.deleted || []), ...(b.deleted || [])]);
     const by = new Map();
     [a, b].forEach(x => (x.sessions || []).forEach(s => { if (!tomb.has(s.id)) by.set(s.id, s); }));
     return Object.assign(empty(), { points: newer.points, threshold: newer.threshold, label: newer.label, started: newer.started,
-      minutes: mins(newer.minutes), sessions: [...by.values()], deleted: [...tomb], updated: Math.max(a.updated || 0, b.updated || 0) });
+      minutes: mins(newer.minutes), band: normBand(newer.band), sessions: [...by.values()], deleted: [...tomb], updated: Math.max(a.updated || 0, b.updated || 0) });
   }
   function save() {
     st.updated = Date.now(); saveLocal();
@@ -447,6 +524,73 @@
     const open = n > 0 && !todayMet;
     return { n, open, gap: open && !days.has(t - 1), best };
   }
+
+  // ---------- stats ----------
+  // The band in force: 5 at 0 reps, then the tally's own rungs for 10, 15 and 20 (DEFAULT_BAND unless the user set theirs).
+  const band = () => [[5, 0], [10, st.band[0]], [15, st.band[1]], [20, st.band[2]]];
+  const score = reps => { const B = band(); if (reps <= 0) return 5; for (let i = 1; i < B.length; i++) { const [s1, r1] = B[i - 1], [s2, r2] = B[i]; if (reps <= r2) return s1 + (s2 - s1) * (reps - r1) / (r2 - r1); } return 20; };
+  const f1 = x => (Math.round(x * 10) / 10).toFixed(1);
+  const liveDate = () => String(st.started || today()).slice(0, 10);
+  // reps by day: filed sessions, plus the live session under the day it started
+  function repsByDay() {
+    const by = {};
+    st.sessions.forEach(s => { if (s.date) by[s.date] = (by[s.date] || 0) + (Number(s.points) || 0); });
+    if (st.points) by[liveDate()] = (by[liveDate()] || 0) + st.points;
+    return by;
+  }
+  function renderStats() {
+    const by = repsByDay(), t = today(), tn = dayNo(t);
+    const days = Object.keys(by).filter(d => by[d] > 0).sort();
+    const sum = f => Object.entries(by).filter(([d]) => f(d)).reduce((a, [, v]) => a + v, 0);
+    const total = sum(() => true), todayReps = by[t] || 0;
+    const mo = t.slice(0, 7), week = sum(d => tn - dayNo(d) < 7), month = sum(d => d.slice(0, 7) === mo);
+    const monthDays = days.filter(d => d.slice(0, 7) === mo).length;
+    const [y, m] = mo.split("-").map(Number), dim = new Date(y, m, 0).getDate(), dom = Number(t.slice(8)), rem = dim - dom + 1;
+    const span = days.length ? tn - dayNo(days[0]) + 1 : 0;
+    const BAND = band(), sc = score(month), next = BAND.find(([, r]) => r > month);
+    // the benchmark inputs show the band in force unless the user is mid-edit
+    [["b10", 0], ["b15", 1], ["b20", 2]].forEach(([id, i]) => { if (document.activeElement !== g(id)) g(id).value = st.band[i]; });
+    g("bdef").hidden = st.band.every((x, i) => x === DEFAULT_BAND[i]);
+    const pace7 = week / 7, projected = month + pace7 * (dim - dom);
+    const need = r => Math.max(0, r - month) / rem;          // reps a day from today through month end
+    const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+    const kpi = (lbl, val, cap, gold) => `<div class="kpi"><div class="lbl">${lbl}</div><div class="val${gold ? " gold" : ""}">${val}</div><div class="cap">${cap}</div></div>`;
+    g("kpis").innerHTML = [
+      kpi("Today", todayReps, next ? `need <b>${f1(need(next[1]))}</b>/day for ${next[0]}` : "band topped", next && todayReps >= need(next[1]) && todayReps > 0),
+      kpi("Last 7 days", week, `<b>${f1(pace7)}</b>/day`),
+      kpi("This month", month, monthDays ? `<b>${f1(month / monthDays)}</b>/session day` : "none yet"),
+      kpi("Score now", f1(sc), next ? `<b>${next[1] - month}</b> to ${next[0]}` : "20 · topped", sc >= 20),
+      kpi("Month end", Math.round(projected), `→ <b>${f1(score(projected))}</b> · ${plural(dim - dom, "day")} left`, score(projected) >= 20),
+      kpi("All time", total, days.length ? `<b>${f1(total / days.length)}</b>/session day · <b>${f1(total / span)}</b>/day` : "nothing filed"),
+    ].join("");
+    // the month against the band: filled to this month's reps, a tick at every rung
+    const top = BAND[BAND.length - 1][1];
+    const mpct = Math.min(100, month / top * 100);
+    g("target").innerHTML = `<div class="bar" style="--p:${mpct}"><i class="${month >= top ? "gold" : ""}" style="width:${mpct}%"></i>${BAND.slice(1).map(([s, r]) => `<span class="tick" style="left:${r / top * 100}%"><b>${s} · ${r}</b></span>`).join("")}</div>` +
+      `<div class="line">to finish ${mo} at ${BAND.slice(1).map(([s, r]) => `${s}: <b>${f1(need(r))}</b>/day`).join(" · ")} over the remaining ${plural(rem, "day")}, today included</div>`;
+    // by subject: filed sessions grouped by their full label (case-insensitive), the live session under its label.
+    // (Grouping by comma-separated keyword was tried 2026-11-10 and reverted: a session's time and reps credited to
+    // every keyword misrepresented the sessions.)
+    const subj = new Map();
+    const addS = (label, s, live) => {
+      const k = (label || "").trim().toLowerCase() || "no label";
+      const o = subj.get(k) || { label: (label || "").trim(), n: 0, reps: 0, min: 0, met: 0, filed: 0, last: "", live: false };
+      o.n++; o.reps += Number(s.points) || 0; o.min += mins(s.minutes) || 0;
+      if (!live) { o.filed++; if (s.points >= s.threshold) o.met++; }
+      if (s.date > o.last) o.last = s.date;
+      if (live) o.live = true;
+      subj.set(k, o);
+    };
+    st.sessions.forEach(s => addS(s.label, s, false));
+    if (st.points) addS(st.label, { points: st.points, minutes: st.minutes, threshold: st.threshold, date: liveDate() }, true);
+    const rows = [...subj.values()].sort((a, b) => b.reps - a.reps);
+    const cell = (x, cls) => `<span class="r${cls ? " " + cls : ""}">${x}</span>`;
+    g("subjects").innerHTML = rows.length
+      ? `<span class="h">subject</span><span class="h r">sessions</span><span class="h r">reps</span><span class="h r">min</span><span class="h r hide-sm">reps/h</span><span class="h r hide-sm">met</span><span class="h r hide-sm">last</span>` +
+        rows.map(o => `<span class="l${o.label ? "" : " none"}">${o.label ? esc(o.label) : "no label"}${o.live ? " <small>· live</small>" : ""}</span>${cell(o.n)}${cell(o.reps)}${cell(o.min || "–", o.min ? "" : "dim")}${cell(o.min ? f1(o.reps / o.min * 60) : "–", "hide-sm" + (o.min ? "" : " dim"))}${cell(o.filed ? `${o.met}/${o.filed}` : "–", "hide-sm" + (o.filed ? "" : " dim"))}${cell(o.last.slice(5), "hide-sm dim")}`).join("")
+      : `<span class="empty" style="grid-column:1/-1">none filed yet</span>`;
+  }
+
   function render() {
     const t = Math.max(1, Number(st.threshold) || 1), p = st.points, done = p >= t;
     g("points").textContent = p;
@@ -461,7 +605,9 @@
     g("best").className = "val" + (sk.best > 0 && sk.n === sk.best && !sk.open ? " gold" : "");
     if (document.activeElement !== g("label")) g("label").value = st.label || "";
     if (document.activeElement !== g("minutes")) g("minutes").value = mins(st.minutes) || "";
-    g("fill").style.width = `${Math.min(100, p / t * 100)}%`;
+    const pct = Math.min(100, p / t * 100);
+    g("fill").style.width = `${pct}%`;
+    g("prog").style.setProperty("--p", pct);
     g("prog").classList.toggle("done", done);
     g("left").textContent = done ? `threshold met${p > t ? ` · +${p - t} over` : ""}` : `${t - p} to go`;
     g("pct").textContent = `${Math.round(p / t * 100)}%`;
@@ -469,6 +615,7 @@
     g("ticks").innerHTML = [...Array(9)].map((_, i) => `<span style="left:${(i + 1) * 10}%"></span>`).join("");
     g("note").classList.toggle("on", done);
     g("notep").textContent = done ? `Session ${st.sessions.length + 1} closed: ${p} of ${t} reps. File it with New session, or keep going.` : "";
+    renderStats();
     // newest first; the index points back into st.sessions for rename and delete
     const rows = st.sessions.map((s, i) => ({ s, i })).reverse().slice(0, 20);
     g("sessions").innerHTML = rows.length ? rows.map(({ s, i }) => `<span class="d" data-date="${i}" title="click to change the date">${esc(s.date)}</span><span class="l ${s.label ? "" : "none"}" data-rename="${i}" title="click to rename">${s.label ? esc(s.label) : "no label"}</span><span class="bar ${s.points >= s.threshold ? "ok" : ""}"><i style="width:${Math.min(100, s.points / Math.max(1, s.threshold) * 100)}%"></i></span><span class="n">${s.points} / ${s.threshold}</span><span class="m ${mins(s.minutes) ? "" : "none"}" data-min="${i}" title="click to set how long this session ran">${mins(s.minutes) ? `${mins(s.minutes)} min` : "– min"}</span><span class="${s.points >= s.threshold ? "ok" : "no"}">${s.points >= s.threshold ? "met" : "short"}</span><button class="x" data-del="${i}" title="delete this session">✕</button>`).join("")
@@ -483,7 +630,7 @@
     g("sessions").querySelectorAll("[data-rename]").forEach(el => el.onclick = () => {
       const s = st.sessions[Number(el.dataset.rename)]; if (!s) return;
       const v = prompt("Label for this session:", s.label || ""); if (v === null) return;
-      s.label = v.trim().slice(0, 40); save(); render();
+      s.label = v.trim().slice(0, LABEL_MAX); save(); render();
     });
     g("sessions").querySelectorAll("[data-date]").forEach(el => el.onclick = () => {
       const s = st.sessions[Number(el.dataset.date)]; if (!s) return;
@@ -519,7 +666,17 @@
   g("rep").onclick = rep;
   g("undo").onclick = () => { if (st.points > 0) { st.points -= 1; if (!st.points) st.started = ""; save(); toast("−1", false); render(); } };
   g("threshold").addEventListener("change", ev => { st.threshold = Math.max(1, Math.round(Number(ev.target.value) || 1)); save(); render(); });
-  g("label").addEventListener("input", ev => { st.label = ev.target.value.slice(0, 40); save(); });
+  // Benchmarks: three rising whole numbers. A bad set is refused with a note and the inputs snap back to the band in force.
+  const setBand = () => {
+    const v = ["b10", "b15", "b20"].map(id => Math.round(Number(g(id).value)));
+    const ok = v.every((x, i) => Number.isFinite(x) && x >= 1 && x <= BAND_MAX && (i === 0 || x > v[i - 1]));
+    g("bmsg").textContent = ok ? "" : "each rung must be a whole number above the one before it";
+    if (ok) { st.band = v; save(); }
+    render();
+  };
+  ["b10", "b15", "b20"].forEach(id => g(id).addEventListener("change", setBand));
+  g("bdef").onclick = () => { st.band = DEFAULT_BAND.slice(); g("bmsg").textContent = ""; save(); render(); };
+  g("label").addEventListener("input", ev => { st.label = ev.target.value.slice(0, LABEL_MAX); save(); });
   // Typing does not re-render; leaving the field shows the clamped whole number that was stored.
   g("minutes").addEventListener("input", ev => { st.minutes = mins(ev.target.value); save(); });
   g("minutes").addEventListener("change", ev => { ev.target.value = mins(st.minutes) || ""; });
@@ -531,7 +688,7 @@
     st.points = 0; st.started = ""; st.label = ""; st.minutes = 0; save(); render();
   };
   document.addEventListener("keydown", ev => {
-    if (ev.target === g("threshold") || ev.target === g("label") || ev.target === g("pin") || ev.target === g("minutes")) return;
+    if (ev.target === g("threshold") || ev.target === g("label") || ev.target === g("pin") || ev.target === g("minutes") || ev.target.closest(".bench")) return;
     if (ev.code === "Space" || ev.code === "Enter") { ev.preventDefault(); rep(); }
   });
   g("save").onclick = saveClick;

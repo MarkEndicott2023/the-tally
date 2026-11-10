@@ -38,11 +38,27 @@ class NotATally(ValueError):
     pass
 
 
+DEFAULT_BAND = [80, 160, 240]  # reps a month that score 10, 15, 20; the-register's band, the page's default
+BAND_MAX = 100000
+
+
 def empty():
-    return {"points": 0, "threshold": 20, "started": "", "label": "", "minutes": 0, "sessions": [], "deleted": [], "updated": 0}
+    return {"points": 0, "threshold": 20, "started": "", "label": "", "minutes": 0, "band": list(DEFAULT_BAND),
+            "sessions": [], "deleted": [], "updated": 0}
 
 
 MAX_MIN = 1440  # a day; the page caps a session's minutes at the same figure
+LABEL_MAX = 80  # characters in a session label; the page's input uses the same figure
+
+
+def as_band(v):
+    """The user's benchmark: three whole reps counts, strictly rising, 1..BAND_MAX; anything else is the default."""
+    try:
+        b = [int(float(x)) for x in list(v)[:3]]
+    except (TypeError, ValueError, OverflowError):
+        return list(DEFAULT_BAND)
+    ok = len(b) == 3 and all(1 <= x <= BAND_MAX for x in b) and b[0] < b[1] < b[2]
+    return b if ok else list(DEFAULT_BAND)
 
 
 def as_int(v, lo):
@@ -80,8 +96,9 @@ def norm(d):
     x["points"] = as_int(d.get("points"), 0)
     x["threshold"] = as_int(d.get("threshold"), 1)
     x["started"] = d.get("started") if is_date(d.get("started")) else ""
-    x["label"] = as_str(d.get("label"), 40)
+    x["label"] = as_str(d.get("label"), LABEL_MAX)
     x["minutes"] = as_min(d.get("minutes"))
+    x["band"] = as_band(d.get("band"))
     x["updated"] = as_int(d.get("updated"), 0)
     raw_del = d.get("deleted") if isinstance(d.get("deleted"), list) else []
     deleted = {s[:80] for s in raw_del if isinstance(s, str)}
@@ -90,7 +107,7 @@ def norm(d):
         if not isinstance(s, dict) or not is_date(s.get("date")):
             continue
         sid = s.get("id") or f"{s.get('date')}|{s.get('label') or ''}|{s.get('points')}|{s.get('threshold')}"
-        sessions.append({"id": as_str(sid, 80), "date": s["date"], "label": as_str(s.get("label"), 40),
+        sessions.append({"id": as_str(sid, 80), "date": s["date"], "label": as_str(s.get("label"), LABEL_MAX),
                          "points": as_int(s.get("points"), 0), "threshold": as_int(s.get("threshold"), 1),
                          "minutes": as_min(s.get("minutes"))})
     x["sessions"] = [s for s in sessions if s["id"] not in deleted]
@@ -108,7 +125,8 @@ def merge(a, b):
                 by[s["id"]] = s
     out = empty()
     out.update(points=newer["points"], threshold=newer["threshold"], label=newer["label"], started=newer["started"],
-               minutes=newer["minutes"], sessions=list(by.values()), deleted=sorted(tomb), updated=max(a["updated"], b["updated"]))
+               minutes=newer["minutes"], band=list(newer["band"]), sessions=list(by.values()), deleted=sorted(tomb),
+               updated=max(a["updated"], b["updated"]))
     return out
 
 
