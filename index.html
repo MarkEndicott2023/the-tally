@@ -402,7 +402,7 @@
   // rules as `merge` above and answers with the result, and coming back to the tab pulls again, so two devices on
   // one PIN converge. The PIN is the only credential and lives in localStorage; Switch PIN forgets it on this
   // device and leaves the tally on the server. With API empty the page stays local-only and says so.
-  const API = "http://127.0.0.1:8766";   // where database/server.py answers, e.g. "http://127.0.0.1:8766" or the Tailscale HTTPS path; no trailing slash
+  const API = "https://the-tally.markendicott2023.workers.dev";   // where database/server.py answers, e.g. "http://127.0.0.1:8766" or the Tailscale HTTPS path; no trailing slash
   const PKEY = "tally_pin";
   let pin = (() => { try { return localStorage.getItem(PKEY) || ""; } catch (e) { return ""; } })();
   let cloudMsg = "", cloudCls = "", pushTimer = 0, pushing = false, pendingPush = false;

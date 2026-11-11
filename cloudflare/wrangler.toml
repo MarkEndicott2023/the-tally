@@ -1,0 +1,17 @@
+# the-tally API on Cloudflare Workers. Deploy from this folder: npx wrangler deploy
+name = "the-tally"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "the-tally"
+database_id = "3f9556a1-2b22-4978-9941-c0d88388d964"
+
+# Requests per client IP per minute across every route; a PIN is 1 of 100,000, so this is the brake on guessing.
+[[ratelimits]]
+name = "PIN_LIMIT"
+namespace_id = "1001"
+[ratelimits.simple]
+limit = 60
+period = 60
