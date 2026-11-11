@@ -1,14 +1,21 @@
 // the-tally API on Cloudflare Workers + D1. Ported from the earlier local server (database/server.py, in git history).
 //
-//   GET  /t/12345   the tally, or 404
-//   POST /t/12345   create it from the body; 409 if the PIN is taken
+//   GET  /t/12345   the tally (with its `name`), or 404
+//   POST /t/12345   create it from the body, which must carry a unique `name`; 400 bad name, 409 "name taken" or
+//                   409 "taken" (the PIN)
 //   PUT  /t/12345   merge the body into it and answer with the result; 404 if it does not exist
+//   PUT  /t/12345/name   set or change the username from {"name": "..."}; 400 bad name, 404 no tally, 409 name taken
+//
+// `name` is a username, 3-20 of [A-Za-z0-9_.-], unique ignoring case, stored beside the document and never
+// inside it. Logging back in needs only the PIN. Rows from before 2026-11-11 have none until /name sets one.
 //
 // D1 has no BEGIN IMMEDIATE across awaits, so a merge is optimistic: read the row, merge, then
 // UPDATE ... WHERE updated = <what we read>. If another device landed in between, changes is 0 and we retry.
 // The rate limiter (env.PIN_LIMIT) counts requests per client IP; PINs are a weak secret, so guessing is throttled.
 
 const ROUTE = /^\/t\/(\d{5})$/;
+const NAME_ROUTE = /^\/t\/(\d{5})\/name$/;
+const NAME = /^[A-Za-z0-9_.-]{3,20}$/;
 const MAX_BODY = 256 * 1024;
 const DEFAULT_BAND = [80, 160, 240];
 const BAND_MAX = 100000;
@@ -91,25 +98,34 @@ async function readBody(request) {
   try {
     const text = await request.text();
     if (text.length > MAX_BODY) return { err: send(413, { error: "too big" }) };
-    return { doc: norm(JSON.parse(text)) };
+    const raw = JSON.parse(text);
+    return { doc: norm(raw), name: typeof raw.name === "string" ? raw.name.trim() : "" };
   } catch (e) {
     return { err: send(400, { error: "body is not a tally" }) };
   }
 }
 
 async function getDoc(db, pin) {
-  const row = await db.prepare("SELECT doc, updated FROM tallies WHERE pin = ?1").bind(pin).first();
+  const row = await db.prepare("SELECT doc, updated, name FROM tallies WHERE pin = ?1").bind(pin).first();
   if (!row) return null;
   let doc;
   try { doc = norm(JSON.parse(row.doc)); } catch (e) { doc = empty(); }
-  return { doc, updated: row.updated };
+  return { doc, updated: row.updated, name: row.name || "" };
+}
+
+const withName = (doc, name) => ({ ...doc, name: name || "" });
+
+async function nameTaken(db, name) {
+  const row = await db.prepare("SELECT pin FROM tallies WHERE name = ?1 COLLATE NOCASE").bind(name).first();
+  return !!row;
 }
 
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") return send(204);
     const url = new URL(request.url);
-    const m = ROUTE.exec(url.pathname);
+    const nm = NAME_ROUTE.exec(url.pathname);
+    const m = nm || ROUTE.exec(url.pathname);
     if (!m) return send(404, { error: "use /t/<5 digits>" });
     const pin = m[1];
 
@@ -119,17 +135,43 @@ export default {
       if (!success) return send(429, { error: "slow down" });
     }
 
+    if (nm) {
+      if (request.method !== "PUT") return send(405, { error: "method not allowed" });
+      let name;
+      try { const raw = JSON.parse(await request.text()); name = typeof raw.name === "string" ? raw.name.trim() : ""; }
+      catch (e) { return send(400, { error: "body is not {name}" }); }
+      if (!NAME.test(name)) return send(400, { error: "bad name" });
+      const cur = await getDoc(env.DB, pin);
+      if (!cur) return send(404, { error: "no tally" });
+      if (cur.name.toLowerCase() === name.toLowerCase()) {   // same name, maybe new casing
+        await env.DB.prepare("UPDATE tallies SET name = ?1 WHERE pin = ?2").bind(name, pin).run();
+        return send(200, { name });
+      }
+      if (await nameTaken(env.DB, name)) return send(409, { error: "name taken" });
+      try {
+        await env.DB.prepare("UPDATE tallies SET name = ?1 WHERE pin = ?2").bind(name, pin).run();
+      } catch (e) {
+        if (/UNIQUE/i.test(String(e && e.message))) return send(409, { error: "name taken" });   // lost the race
+        throw e;
+      }
+      return send(200, { name });
+    }
+
     if (request.method === "GET") {
       const cur = await getDoc(env.DB, pin);
-      return cur ? send(200, cur.doc) : send(404, { error: "no tally" });
+      return cur ? send(200, withName(cur.doc, cur.name)) : send(404, { error: "no tally" });
     }
 
     if (request.method === "POST") {
-      const { doc, err } = await readBody(request);
+      const { doc, name, err } = await readBody(request);
       if (err) return err;
-      const r = await env.DB.prepare("INSERT OR IGNORE INTO tallies (pin, doc, updated) VALUES (?1, ?2, ?3)")
-        .bind(pin, JSON.stringify(doc), doc.updated).run();
-      return r.meta.changes > 0 ? send(201, doc) : send(409, { error: "taken" });
+      if (!NAME.test(name)) return send(400, { error: "bad name" });
+      if (await nameTaken(env.DB, name)) return send(409, { error: "name taken" });
+      // OR IGNORE swallows a unique clash on either pin or name; when nothing landed, ask which it was.
+      const r = await env.DB.prepare("INSERT OR IGNORE INTO tallies (pin, doc, updated, name) VALUES (?1, ?2, ?3, ?4)")
+        .bind(pin, JSON.stringify(doc), doc.updated, name).run();
+      if (r.meta.changes > 0) return send(201, withName(doc, name));
+      return send(409, { error: (await getDoc(env.DB, pin)) ? "taken" : "name taken" });
     }
 
     if (request.method === "PUT") {
@@ -141,7 +183,7 @@ export default {
         const out = merge(cur.doc, doc);
         const r = await env.DB.prepare("UPDATE tallies SET doc = ?1, updated = ?2 WHERE pin = ?3 AND updated = ?4")
           .bind(JSON.stringify(out), out.updated, pin, cur.updated).run();
-        if (r.meta.changes > 0) return send(200, out);
+        if (r.meta.changes > 0) return send(200, withName(out, cur.name));
       }
       return send(503, { error: "busy, try again" });
     }

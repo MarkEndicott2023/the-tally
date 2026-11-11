@@ -171,7 +171,14 @@
   .pinrow input { background: var(--panel2); color: var(--white); border: 1px solid var(--frame2); font-family: var(--font-mono); font-size: 22px; letter-spacing: .35em; width: 7em; padding: 6px 10px 6px 14px; text-align: center; color-scheme: dark; }
   .pinrow input:focus { outline: none; border-color: var(--frame); box-shadow: 0 0 8px rgba(40,210,200,.22); }
   .pinrow input::placeholder { color: var(--dim); letter-spacing: .06em; font-size: 14px; }
+  .pinrow input#who { font-size: 16px; letter-spacing: .06em; width: 9em; text-align: left; padding-left: 10px; }
+  .pincap { font-family: var(--font-mono); font-size: 11px; color: var(--dim); letter-spacing: .2em; text-transform: uppercase; width: 7.5em; flex: none; }
+  .pinalt { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--frame2); }
   .pinrow .pinval { font-family: var(--font-mono); font-size: 13px; color: var(--ice); letter-spacing: .06em; margin-right: 8px; }
+  .pinrow .pinval[hidden] { display: none; }
+  .pinrow .whoval { color: var(--white); font-size: 16px; letter-spacing: .06em; text-shadow: var(--halo2); cursor: pointer; }
+  .pinrow .whoval:hover { color: var(--ice); }
+  .pinrow .whoval.none { color: var(--dim); font-size: 12px; text-shadow: none; }
   .pinrow .pinval b { color: var(--white); font-weight: normal; font-size: 22px; letter-spacing: .35em; margin-left: 10px; text-shadow: var(--halo2); }
   .pinhint { margin-top: 12px; color: var(--dim); font-size: 12px; font-family: var(--font-mono); line-height: 1.7; letter-spacing: .03em; }
   @media (max-width: 600px) { body { padding: 24px 16px 50px; } .panel { padding: 20px 18px; } .rep { height: 130px; font-size: 22px; } }
@@ -194,17 +201,25 @@
 
   <div class="panel">
     <h2>PIN</h2>
-    <div class="pinrow" id="pinform">
-      <input type="text" id="pin" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="5 digits" title="your tally's PIN">
-      <button id="pinopen" class="cy" title="open the tally filed under this PIN and bring it into this browser">Open</button>
-      <button id="pinnew" title="start a new tally under this PIN, or under a random one if the box is empty">New tally</button>
+    <div id="pinform">
+      <div class="pinrow">
+        <span class="pincap">have a PIN</span>
+        <input type="text" id="pin" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="5 digits" title="your tally's PIN">
+        <button id="pinopen" class="cy" title="open the tally filed under this PIN and bring it into this browser">Open</button>
+      </div>
+      <div class="pinrow pinalt">
+        <span class="pincap">new here</span>
+        <input type="text" id="who" autocomplete="off" maxlength="20" spellcheck="false" placeholder="username" title="3–20 letters, digits, _ . - ; no one else can have it">
+        <button id="pinnew" title="start a new tally under this username; you get a random PIN">New tally</button>
+      </div>
     </div>
     <div class="pinrow" id="pinon" hidden>
+      <span class="pinval whoval" id="whoshow" title="click to set or change the username"></span>
       <span class="pinval">PIN<b id="pinshow"></b></span>
       <button id="pinout" title="forget this PIN on this device; the tally stays on the server">Switch PIN</button>
     </div>
     <div class="disk" id="cloud"></div>
-    <div class="pinhint" id="pinhint">A PIN is the whole account: no name, no email. <span>New tally</span> makes one and shows you the PIN; write it down, it is the only way back in. <span>Open</span> brings an existing tally to this browser and keeps it in step from then on; opening a different PIN replaces what this browser holds.</div>
+    <div class="pinhint" id="pinhint">The PIN is the whole account and the only way back in. Write it down.</div>
   </div>
 
   <div class="panel">
@@ -397,7 +412,7 @@
   }
 
   // Server: a 5-digit PIN names a tally on the server (cloudflare/worker.js, Cloudflare Workers + D1). Open fetches
-  // the tally under a PIN; New tally creates one under the typed PIN, or a random free one. From then on every
+  // the tally under a PIN; New tally creates one under a random free PIN. From then on every
   // change is pushed (debounced), the server merges both sides with the same rules as `merge` above and answers
   // with the result, and coming back to the tab pulls again, so two devices on one PIN converge. The PIN is the
   // only credential and lives in localStorage; Switch PIN forgets it on this device and leaves the tally on the
@@ -407,12 +422,18 @@
   // copy, so switching PINs never piles one tally onto another. New tally likewise starts empty when the copy
   // belongs to another PIN, and uploads it only when it was never linked.
   const API = "https://the-tally.markendicott2023.workers.dev";   // where cloudflare/worker.js answers; "" for local-only; no trailing slash
-  const PKEY = "tally_pin", OKEY = "tally_owner";
+  // `who` is the tally's username: chosen once at New tally, unique on the server ignoring case, shown beside the
+  // PIN; Open needs only the PIN and learns the username from the server. Tallies from before usernames have none.
+  const PKEY = "tally_pin", OKEY = "tally_owner", WKEY = "tally_who";
   const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
   const lsSet = (k, v) => { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) { } };
-  let pin = lsGet(PKEY), owner = lsGet(OKEY);
+  let pin = lsGet(PKEY), owner = lsGet(OKEY), who = lsGet(WKEY);
   if (pin && !owner) { owner = pin; lsSet(OKEY, owner); }   // copies linked before `owner` existed belong to their PIN
   const setOwner = p => { owner = p; lsSet(OKEY, p); };
+  const setWho = n => { who = n || ""; lsSet(WKEY, who); };
+  const tag = () => `${who || "no username"} · PIN ${pin}`;   // who this browser is synced as, for every status line
+  const validName = n => /^[A-Za-z0-9_.-]{3,20}$/.test(n);   // the server's rule
+  const NAME_RULE = "a username is 3–20 letters, digits, _ . -";
   // Drop this browser's copy for the server's: used when the copy belongs to another PIN.
   function replace(doc) { st = norm(doc); saveLocal(); render(); }
   let cloudMsg = "", cloudCls = "", pushTimer = 0, pushing = false, pendingPush = false;
@@ -421,9 +442,11 @@
   const rememberPin = p => { pin = p; lsSet(PKEY, p); };
   async function api(method, p, body) {
     const r = await fetch(`${API}/t/${p}`, { method, headers: body ? { "content-type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
-    const text = await r.text(); let data = null;
+    const text = await r.text(); let data = null, name = "";
     try { data = text ? JSON.parse(text) : null; } catch (e) { }
-    return { ok: r.ok, status: r.status, data };
+    // The username rides beside the document, never in it: lift it out so it cannot seep into the local copy.
+    if (data && typeof data === "object") { name = typeof data.name === "string" ? data.name : ""; delete data.name; }
+    return { ok: r.ok, status: r.status, data, name };
   }
   // Take the server's copy into the page; render only when something changed so typing is not disturbed.
   function adopt(doc) {
@@ -435,8 +458,9 @@
   function cloudView() {
     const on = !!pin;
     g("pinform").hidden = on; g("pinon").hidden = !on; g("pinhint").hidden = on;
-    if (on) g("pinshow").textContent = pin;
-    g("pinopen").disabled = g("pinnew").disabled = g("pin").disabled = !API;
+    if (on) { g("pinshow").textContent = pin; g("whoshow").textContent = who || "no username"; g("whoshow").classList.toggle("none", !who); }
+    document.title = on && who ? `The Tally · ${who}` : "The Tally";
+    g("pinopen").disabled = g("pinnew").disabled = g("pin").disabled = g("who").disabled = !API;
     const el = g("cloud");
     el.textContent = API ? cloudMsg : "no server configured: this page keeps its count in this browser only";
     el.className = "disk" + (cloudCls ? " " + cloudCls : "");
@@ -450,36 +474,59 @@
       if (r.status === 404) { setCloud(`no tally under ${p} · New tally creates one`, "warn"); return; }
       if (!r.ok) throw new Error(`server said ${r.status}`);
       const srv = norm(r.data), foreign = owner && owner !== p;
-      rememberPin(p); setOwner(p);
-      if (foreign) { replace(srv); setCloud(`PIN ${pin} · synced`); toast("OPENED", false); return; }
+      rememberPin(p); setOwner(p); setWho(r.name);
+      if (foreign) { replace(srv); setCloud(`${tag()} · synced`); toast("OPENED", false); return; }
       const m = adopt(srv);
-      setCloud(`PIN ${pin} · synced`); toast("OPENED", false);
+      setCloud(`${tag()} · synced`); toast("OPENED", false);
       if (JSON.stringify(m) !== JSON.stringify(srv)) schedulePush();   // this browser held something the server lacked
     } catch (e) { setCloud(`could not reach the server: ${e.message}`, "err"); }
   }
-  async function pinNew(p) {
+  // New tally: a username of the user's choosing, a PIN of ours (random, retried while taken).
+  async function pinNew(n) {
     if (!API) return;
-    const typed = !!p;
-    if (typed && !validPin(p)) { setCloud("a PIN is 5 digits", "warn"); return; }
+    if (!n) { setCloud("New tally needs a username", "warn"); g("who").focus(); return; }
+    if (!validName(n)) { setCloud(NAME_RULE, "warn"); g("who").focus(); return; }
     setCloud("creating…");
     const fresh = !!owner, seed = fresh ? empty() : st;   // a copy that belongs to another PIN stays with it; a never-linked copy comes along
     try {
       for (let i = 0; i < 20; i++) {
-        const cand = typed ? p : randomPin();
-        const r = await api("POST", cand, seed);
-        if (r.status === 409) { if (typed) { setCloud(`${cand} is taken · pick another, or leave the box empty for a random one`, "warn"); return; } continue; }
+        const cand = randomPin();
+        const r = await api("POST", cand, { ...seed, name: n });
+        const why = r.data && r.data.error;
+        if (r.status === 400 && why === "bad name") { setCloud(NAME_RULE, "warn"); return; }
+        if (r.status === 409 && why === "name taken") { setCloud(`${n} is taken · pick another username`, "warn"); g("who").focus(); return; }
+        if (r.status === 409) continue;   // that random PIN is in use; draw again
         if (!r.ok) throw new Error(`server said ${r.status}`);
-        rememberPin(cand); setOwner(cand);
+        rememberPin(cand); setOwner(cand); setWho(r.name || n);
         if (fresh) replace(r.data); else adopt(r.data);
-        setCloud(`PIN ${pin} · write it down, it is the only way back in`, "warn"); toast("NEW TALLY", true);
+        setCloud(`${tag()} · write the PIN down, it is the only way back in`, "warn"); toast("NEW TALLY", true);
         return;
       }
       setCloud("could not find a free PIN; try again", "err");
     } catch (e) { setCloud(`could not reach the server: ${e.message}`, "err"); }
   }
+  // Click the username (or "no username") to set or change it; the server keeps it unique, ignoring case.
+  async function whoEdit() {
+    if (!pin || !API) return;
+    const v = prompt(`Username for PIN ${pin} (${NAME_RULE}):`, who); if (v === null) return;
+    const n = v.trim();
+    if (!validName(n)) { setCloud(NAME_RULE, "warn"); return; }
+    if (n === who) return;
+    setCloud("renaming…");
+    try {
+      const r = await fetch(`${API}/t/${pin}/name`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: n }), cache: "no-store" });
+      let data = null; try { data = await r.json(); } catch (e) { }
+      const why = data && data.error;
+      if (r.status === 409 && why === "name taken") { setCloud(`${n} is taken · pick another username`, "warn"); return; }
+      if (r.status === 400) { setCloud(NAME_RULE, "warn"); return; }
+      if (!r.ok) throw new Error(`server said ${r.status}`);
+      setWho(data && data.name || n);
+      setCloud(`${tag()} · username saved`); toast("RENAMED", false);
+    } catch (e) { setCloud(`could not reach the server: ${e.message}`, "err"); }
+  }
   function pinOut() {
-    if (!confirm(`Forget PIN ${pin} on this device? The tally stays on the server and the PIN opens it again. Opening a different PIN replaces the copy on this device.`)) return;
-    rememberPin(""); g("pin").value = ""; setCloud("");
+    if (!confirm(`Forget ${tag()} on this device? The tally stays on the server and the PIN opens it again. Opening a different PIN replaces the copy on this device.`)) return;
+    rememberPin(""); setWho(""); g("pin").value = ""; g("who").value = ""; setCloud("");
   }
   function schedulePush() { if (!pin || !API) return; pendingPush = true; clearTimeout(pushTimer); pushTimer = setTimeout(cloudPush, 500); }
   async function cloudPush() {
@@ -489,7 +536,7 @@
       const r = await api("PUT", pin, st);
       if (r.status === 404) setCloud(`no tally under ${pin} on the server any more · Switch PIN, or New tally re-creates it from this browser`, "err");
       else if (!r.ok) throw new Error(`server said ${r.status}`);
-      else { adopt(r.data); setCloud(`PIN ${pin} · synced`); }
+      else { adopt(r.data); setCloud(`${tag()} · synced`); }
     } catch (e) { setCloud(`not synced: ${e.message} · retrying`, "err"); setTimeout(schedulePush, 5000); }
     pushing = false;
     if (pendingPush) schedulePush();
@@ -500,8 +547,9 @@
       const r = await api("GET", pin);
       if (r.status === 404) { setCloud(`no tally under ${pin} on the server · Switch PIN, or New tally re-creates it from this browser`, "err"); return; }
       if (!r.ok) throw new Error(`server said ${r.status}`);
+      if (r.name !== who) setWho(r.name);
       const srv = norm(r.data), m = adopt(srv);
-      setCloud(`PIN ${pin} · synced`);
+      setCloud(`${tag()} · synced`);
       if (JSON.stringify(m) !== JSON.stringify(srv)) schedulePush();
     } catch (e) { setCloud(`not synced: ${e.message}`, "err"); }
   }
@@ -709,8 +757,10 @@
   g("pin").addEventListener("input", ev => { ev.target.value = ev.target.value.replace(/\D/g, "").slice(0, 5); });
   g("pin").addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); pinOpen(g("pin").value); } });
   g("pinopen").onclick = () => pinOpen(g("pin").value);
-  g("pinnew").onclick = () => pinNew(g("pin").value);
+  g("pinnew").onclick = () => pinNew(g("who").value.trim());
+  g("who").addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); pinNew(g("who").value.trim()); } });
   g("pinout").onclick = pinOut;
+  g("whoshow").onclick = whoEdit;
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") cloudPull(); });
   window.addEventListener("beforeunload", ev => { if ((dirty() && (linked || !FSA)) || pendingPush || pushing) { ev.preventDefault(); ev.returnValue = ""; } });
   render(); status(); cloudView();
