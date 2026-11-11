@@ -204,7 +204,7 @@
       <button id="pinout" title="forget this PIN on this device; the tally stays on the server">Switch PIN</button>
     </div>
     <div class="disk" id="cloud"></div>
-    <div class="pinhint" id="pinhint">A PIN is the whole account: no name, no email. <span>New tally</span> makes one and shows you the PIN; write it down, it is the only way back in. <span>Open</span> brings an existing tally to this browser and keeps it in step from then on.</div>
+    <div class="pinhint" id="pinhint">A PIN is the whole account: no name, no email. <span>New tally</span> makes one and shows you the PIN; write it down, it is the only way back in. <span>Open</span> brings an existing tally to this browser and keeps it in step from then on; opening a different PIN replaces what this browser holds.</div>
   </div>
 
   <div class="panel">
@@ -397,18 +397,28 @@
   }
 
   // Server: a 5-digit PIN names a tally on the server (cloudflare/worker.js, Cloudflare Workers + D1). Open fetches
-  // the tally under a PIN and merges it with this browser's copy; New tally creates one under the typed PIN, or a
-  // random free one. From then on every change is pushed (debounced), the server merges both sides with the same
-  // rules as `merge` above and answers with the result, and coming back to the tab pulls again, so two devices on
-  // one PIN converge. The PIN is the only credential and lives in localStorage; Switch PIN forgets it on this
-  // device and leaves the tally on the server. With API empty the page stays local-only and says so.
+  // the tally under a PIN; New tally creates one under the typed PIN, or a random free one. From then on every
+  // change is pushed (debounced), the server merges both sides with the same rules as `merge` above and answers
+  // with the result, and coming back to the tab pulls again, so two devices on one PIN converge. The PIN is the
+  // only credential and lives in localStorage; Switch PIN forgets it on this device and leaves the tally on the
+  // server. With API empty the page stays local-only and says so.
+  // `owner` is the PIN this browser's copy belongs to ("" when it has never been linked). Open merges the browser's
+  // copy into the server's only when the owner is that PIN or there is none; opening a different PIN replaces the
+  // copy, so switching PINs never piles one tally onto another. New tally likewise starts empty when the copy
+  // belongs to another PIN, and uploads it only when it was never linked.
   const API = "https://the-tally.markendicott2023.workers.dev";   // where cloudflare/worker.js answers; "" for local-only; no trailing slash
-  const PKEY = "tally_pin";
-  let pin = (() => { try { return localStorage.getItem(PKEY) || ""; } catch (e) { return ""; } })();
+  const PKEY = "tally_pin", OKEY = "tally_owner";
+  const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
+  const lsSet = (k, v) => { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) { } };
+  let pin = lsGet(PKEY), owner = lsGet(OKEY);
+  if (pin && !owner) { owner = pin; lsSet(OKEY, owner); }   // copies linked before `owner` existed belong to their PIN
+  const setOwner = p => { owner = p; lsSet(OKEY, p); };
+  // Drop this browser's copy for the server's: used when the copy belongs to another PIN.
+  function replace(doc) { st = norm(doc); saveLocal(); render(); }
   let cloudMsg = "", cloudCls = "", pushTimer = 0, pushing = false, pendingPush = false;
   const validPin = p => /^\d{5}$/.test(p);
   const randomPin = () => String(Math.floor(Math.random() * 1e5)).padStart(5, "0");
-  const rememberPin = p => { pin = p; try { if (p) localStorage.setItem(PKEY, p); else localStorage.removeItem(PKEY); } catch (e) { } };
+  const rememberPin = p => { pin = p; lsSet(PKEY, p); };
   async function api(method, p, body) {
     const r = await fetch(`${API}/t/${p}`, { method, headers: body ? { "content-type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
     const text = await r.text(); let data = null;
@@ -439,8 +449,10 @@
       const r = await api("GET", p);
       if (r.status === 404) { setCloud(`no tally under ${p} · New tally creates one`, "warn"); return; }
       if (!r.ok) throw new Error(`server said ${r.status}`);
-      rememberPin(p);
-      const srv = norm(r.data), m = adopt(srv);
+      const srv = norm(r.data), foreign = owner && owner !== p;
+      rememberPin(p); setOwner(p);
+      if (foreign) { replace(srv); setCloud(`PIN ${pin} · synced`); toast("OPENED", false); return; }
+      const m = adopt(srv);
       setCloud(`PIN ${pin} · synced`); toast("OPENED", false);
       if (JSON.stringify(m) !== JSON.stringify(srv)) schedulePush();   // this browser held something the server lacked
     } catch (e) { setCloud(`could not reach the server: ${e.message}`, "err"); }
@@ -450,13 +462,15 @@
     const typed = !!p;
     if (typed && !validPin(p)) { setCloud("a PIN is 5 digits", "warn"); return; }
     setCloud("creating…");
+    const fresh = !!owner, seed = fresh ? empty() : st;   // a copy that belongs to another PIN stays with it; a never-linked copy comes along
     try {
       for (let i = 0; i < 20; i++) {
         const cand = typed ? p : randomPin();
-        const r = await api("POST", cand, st);
+        const r = await api("POST", cand, seed);
         if (r.status === 409) { if (typed) { setCloud(`${cand} is taken · pick another, or leave the box empty for a random one`, "warn"); return; } continue; }
         if (!r.ok) throw new Error(`server said ${r.status}`);
-        rememberPin(cand); adopt(r.data);
+        rememberPin(cand); setOwner(cand);
+        if (fresh) replace(r.data); else adopt(r.data);
         setCloud(`PIN ${pin} · write it down, it is the only way back in`, "warn"); toast("NEW TALLY", true);
         return;
       }
@@ -464,7 +478,7 @@
     } catch (e) { setCloud(`could not reach the server: ${e.message}`, "err"); }
   }
   function pinOut() {
-    if (!confirm(`Forget PIN ${pin} on this device? The tally stays on the server and the PIN opens it again.`)) return;
+    if (!confirm(`Forget PIN ${pin} on this device? The tally stays on the server and the PIN opens it again. Opening a different PIN replaces the copy on this device.`)) return;
     rememberPin(""); g("pin").value = ""; setCloud("");
   }
   function schedulePush() { if (!pin || !API) return; pendingPush = true; clearTimeout(pushTimer); pushTimer = setTimeout(cloudPush, 500); }

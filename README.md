@@ -16,7 +16,7 @@ Open `index.html` in Chrome or Edge, or visit https://markendicott2023.github.io
 
 ## PIN (2026-11-08)
 
-A PIN is the whole account: five digits, no name, no email. **New tally** creates one under the typed PIN, or a random free one when the box is empty, and shows the PIN; it is the only way back in. **Open** fetches the tally under a PIN, merges it with the browser's copy, and keeps the two in step from then on: every change is pushed, the server merges both sides, and returning to the tab pulls again, so a phone and a laptop on one PIN converge. **Switch PIN** forgets the PIN on that device and leaves the tally on the server.
+A PIN is the whole account: five digits, no name, no email. **New tally** creates one under the typed PIN, or a random free one when the box is empty, and shows the PIN; it is the only way back in. **Open** fetches the tally under a PIN and keeps the two in step from then on: every change is pushed, the server merges both sides, and returning to the tab pulls again, so a phone and a laptop on one PIN converge. The browser remembers which PIN its copy belongs to: Open merges the copy in only when it is that PIN's or was never linked, and opening a different PIN replaces it, so switching PINs never piles one tally onto another (fixed 2026-11-11). New tally follows the same rule and starts empty when the copy belongs to another PIN. **Switch PIN** forgets the PIN on that device and leaves the tally on the server.
 
 Known limit, by design of "extremely simple": there are 100,000 PINs and no rate limit, so a PIN is a weak secret; anyone holding it holds the tally.
 
