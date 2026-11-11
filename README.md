@@ -3,10 +3,11 @@
 A one-page counter for prediction-error reps: attempt or predict, get the verdict, take the feedback, click once. Every click is a point. The session closes when points reach a threshold you set.
 
 ```
-index.html        the whole page
-tally.json        the record, wherever you save it (file mode)
-database/server.py  the server: one tally per PIN, in a SQLite file on this Mac (standard library only)
-database/tally.db   that database, created on first run; not committed
+index.html              the whole page
+tally.json              the record, wherever you save it (file mode)
+cloudflare/worker.js    the server: one tally per PIN, on Cloudflare Workers + D1
+cloudflare/wrangler.toml  its config (D1 binding, rate limit)
+cloudflare/schema.sql   the one table
 ```
 
 ## Run
@@ -19,22 +20,22 @@ A PIN is the whole account: five digits, no name, no email. **New tally** create
 
 Known limit, by design of "extremely simple": there are 100,000 PINs and no rate limit, so a PIN is a weak secret; anyone holding it holds the tally.
 
-### Server
+### Server (2026-11-11)
 
-`database/server.py` is the whole backend: Python 3 standard library, SQLite, one table (`pin`, `doc`, `updated`). Writes run under `BEGIN IMMEDIATE`, so two devices pushing the same PIN at once serialize and both land in the merge. The endpoints are `GET`, `POST` (create, 409 if taken) and `PUT` (merge) on `/t/<pin>`.
+`cloudflare/worker.js` is the whole backend: a Cloudflare Worker with a D1 (SQLite) database, one table (`pin`, `doc`, `updated`), live at https://the-tally.markendicott2023.workers.dev on the Workers free plan. The endpoints are `GET`, `POST` (create, 409 if taken) and `PUT` (merge) on `/t/<pin>`. D1 has no transaction across awaits, so a merge is optimistic: read, merge, `UPDATE ... WHERE updated = <what was read>`, retry if another device landed first. A rate-limit binding allows 60 requests a minute per IP, the brake on PIN guessing. The page points at it with `const API` in `index.html` (no trailing slash).
+
+Deploy from `cloudflare/` after `npx wrangler login`:
 
 ```
-python3 database/server.py                  # 127.0.0.1:8766, database/tally.db
-python3 database/server.py --port 8766 --db ~/tally.db --host 0.0.0.0
+npx wrangler deploy
+npx wrangler d1 execute the-tally --remote --command "SELECT pin, updated FROM tallies"   # look inside
 ```
 
-Point the page at it: `const API = "http://127.0.0.1:8766"` in `index.html` (no trailing slash). From the Pages site over HTTPS, Chrome 142 and later asks once whether the site may reach your local network (its Local Network Access permission, [developer.chrome.com](https://developer.chrome.com/blog/local-network-access)); click Allow and the loopback call works on this Mac. Anyone else, or the phone, needs the server reachable over HTTPS, which is what the-register's Tailscale Serve proxy already does for the page (`tailscale serve` can map a second path to this port). Reaching it from outside the tailnet is Tailscale Funnel or a reverse proxy; that step is deliberately not set up here.
+The database was created with `npx wrangler d1 create the-tally` (its id is in `wrangler.toml`) and `npx wrangler d1 execute the-tally --remote --file=schema.sql`. Free-plan ceilings: 100,000 Worker requests, 5,000,000 D1 rows read and 100,000 rows written a day. The earlier local server (`database/server.py`, SQLite on this Mac, removed 2026-11-11) is in git history.
 
-Back the database up like any file: copy `database/tally.db` while the server is stopped, or `sqlite3 database/tally.db ".backup ~/tally-backup.db"` while it runs.
+## Phone
 
-## Phone (2026-11-02)
-
-`ui/tally` in the-register is a symlink to this folder, so the-register's server and its Tailscale Serve proxy carry the page: https://marks-macbook-pro.taila29e61.ts.net/tally/ on the tailnet, with the Mac awake. iOS Safari has no file picker, so on the phone Save downloads a copy and the count lives in that browser alone; it does not reach tally.json. Undo with `rm the-register/ui/tally`.
+The Pages site syncs on the phone like anywhere else once a PIN is open. iOS Safari has no file picker, so Save there only downloads a copy. `ui/tally` in the-register is a symlink to this folder, so the-register's Tailscale Serve proxy also carries the page on the tailnet; undo with `rm the-register/ui/tally`.
 
 ## Use
 

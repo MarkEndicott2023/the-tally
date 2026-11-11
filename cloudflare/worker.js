@@ -1,4 +1,4 @@
-// the-tally API on Cloudflare Workers + D1. A port of database/server.py, same routes, same merge.
+// the-tally API on Cloudflare Workers + D1. Ported from the earlier local server (database/server.py, in git history).
 //
 //   GET  /t/12345   the tally, or 404
 //   POST /t/12345   create it from the body; 409 if the PIN is taken
